@@ -1,0 +1,65 @@
+#!/bin/bash
+
+###################
+# Help
+###################
+
+Help()
+{
+    echo "This script creates a backup of a nextcloud instance using the backup plugin"
+    echo
+    echo "Syntax: create_cloud_backup [-h|d]"
+    echo "options:"
+    echo "h     Print this Help."
+    echo "n     Nothing yet."
+}
+
+##################
+# Main
+##################
+
+LOG_PATH="/home/watten/cloud_backup_scripts/purge.log"
+BACKUP_PATH="/mnt/cloud/html/data/appdata_ocrwov2jcm7v/backup"
+optstring=":nh"
+differential=""
+MIN_FULL=0
+
+while getopts ${optstring} arg; do
+        case "${arg}" in
+            n)  ;;
+            h)  Help
+                exit;;
+            ?)
+                echo "Invalid option: -${OPTARG}."
+                exit;;
+        esac
+done
+
+cd $BACKUP_PATH
+
+echo "Keeping $MIN_FULL full backups and all child differential backups" >> $LOG_PATH
+
+
+NUM_FULL=$(find . -maxdepth 1 -name "*-full-*" | wc -l)
+
+if [ $NUM_FULL -le $MIN_FULL ]; then
+    echo "Only found $NUM_FULL backups, no backups will be deleted" >> $LOG_PATH
+    exit 0
+fi
+
+TO_DELETE=$(($NUM_FULL - $MIN_FULL))
+echo "Found $NUM_FULL backups, the oldest $TO_DELETE will be deleted." >> $LOG_PATH
+echo "Including all the child differential backups" >> $LOG_PATH
+
+FILES=$(find . -maxdepth 1 -name "*-full-*" -printf "%T@ %f\n" | sort -k1,1r | cut -d' ' -f2 | head -$TO_DELETE)
+
+echo "Deleting the following full backups " >> $LOG_PATH
+echo $FILES >> $LOG_PATH
+
+rm $FILES
+
+FILES=$(find . -maxdepth 1 -regextype sed -regex ".*-\(differential\|full\)-.*" -printf "%T@ %f\n" | sort -k1,1r | cut -d' ' -f2 | awk '1;/.*-full-.*/{exit}' | sed '/.*-full-.*/d')
+echo "Deleting the follwing orphan differential backups" >> $LOG_PATH
+echo $FILES >> $LOG_PATH
+
+rm $FILES
