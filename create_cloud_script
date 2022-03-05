@@ -1,0 +1,65 @@
+#!/bin/bash
+
+###################
+# Help            #
+###################
+
+Help()
+{
+    echo "This script creates a backup of a nextcloud instance using the backup plugin"
+    echo
+    echo "Syntax: create_cloud_backup [-h|d|a]"
+    echo "options:"
+    echo "h     Print this Help."
+    echo "d     Create a differential backup instead of a full one."
+    echo "a     If the last full backup is older than 28 day create a full one otherwise create a differential backup"
+}
+
+##################
+# Main           #
+##################
+LOG_PATH="/home/watten/cloud_backup_scripts/create.log"
+optstring=":dha"
+differential=""
+
+cd /mnt/cloud/html/data/appdata_ocrwov2jcm7v/backup
+
+echo "" >> $LOG_PATH
+echo "Create Backup script called on $(date)" >> $LOG_PATH
+
+while getopts ${optstring} arg; do
+        case "${arg}" in
+            d) # Differential backup
+                differential="--differential";;
+            h) # Show help
+                Help
+                exit;;
+            a) # If
+                S_SINCE_LAST=$(find . -maxdepth 1 -name "*-full-*" -printf "%Ts\n" | sort -k1,1r | head -1)
+                D_DIFF=$((($(date +%s) - $S_SINCE_LAST) / 86400))
+
+                if [ $D_DIFF -lt 28 ]; then
+                    echo "Less than 30 days since last full backup creating a differential backup" >> $LOG_PATH
+                    differential="--differential"
+                fi
+                ;;
+            ?)
+                echo "Invalid option: -${OPTARG}."
+                exit;;
+        esac
+done
+
+/usr/local/bin/docker-compose -f /home/watten/docker/docker-compose.cloud.yml exec -T -u www-data app php occ backup:point:create $differential >> $LOG_PATH
+
+NEW_BACKUP_DIR=$(ls -td * | head -1)
+
+echo "compress backup $NEW_BACKUP_DIR" >> $LOG_PATH
+tar cf $NEW_BACKUP_DIR.tar.gz $NEW_BACKUP_DIR -I "pigz -p 4 --best" >> $LOG_PATH
+
+rm -r $NEW_BACKUP_DIR
+
+echo "copy compessed backup to on-site external server" >> $LOG_PATH
+rsync -r --inplace --append --progress --timeout=60 $NEW_BACKUP_DIR.tar.gz cloud_backup@192.168.1.113:/mnt/cloud_backup/restore_points/
+
+echo "" >> $LOG_PATH
+echo "DONE" >> $LOG_PATH
