@@ -1,5 +1,5 @@
 import os
-import upload_backup
+import old.upload_backup as upload_backup
 # Python script to upload newest backup to AWS Glacier
 # This script is intended to be run from cron
 # It will upload the newest backup to AWS Glacier
