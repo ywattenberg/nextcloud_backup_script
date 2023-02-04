@@ -6,7 +6,7 @@ import configparser
 import subprocess
 
 @click.group(invoke_without_command=True, chain=True)
-@click.option('--config', default='config.ini', help='Config file', type=click.File())
+@click.option('--config', default='backup.conf', help='Config file', type=click.File())
 @click.option('--log', default='backup.log', help='Log file', type=click.Path())
 @click.option('--verbose', is_flag=True, help='Print log to console as well')
 @click.option('--task', help='runs the given file as a task', type=click.File())
@@ -143,5 +143,5 @@ def nextcloud(ctx, docker, container_name, docker_compose_path, docker_compose_f
 
 
 
-if __name__ == "main":
+if __name__ == '__main__':
     main(obj={})
