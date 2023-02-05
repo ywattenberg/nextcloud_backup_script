@@ -6,7 +6,7 @@ import configparser
 import subprocess
 import datetime
 
-import utils
+from utils import utils
 import create
 import purge
 
@@ -17,8 +17,9 @@ import purge
 @click.option('--task', '-t', help='runs the given file as a task', type=click.File())
 @click.option('--debug', '-d', is_flag=True, help='Debug mode')
 @click.option('--version', is_flag=True, help='Show version')
+@click.option('--dry-run', is_flag=True, help='Dry run')
 @click.pass_context
-def cli(ctx, config, log, verbose, task, debug, version):
+def cli(ctx, config, log, verbose, task, debug, version, dry_run):
     """Backup script for Nextcloud and other applications. For creating, compressing, encrypting, transferring and uploading backups to aws s3. This script is still in development and not ready for production use. Use at your own risk."""
     if version:
         click.echo("Version 0.1")
@@ -57,6 +58,9 @@ def cli(ctx, config, log, verbose, task, debug, version):
         else:
             logging.info("Running task file: %s" % task)
                 # TODO: Run task file
+
+    if dry_run:
+        utils.write_arguments_to_config(ctx.obj, 'general', {'dry_run': True})
     
     # if not ctx.invoked_subcommand:
     #     logging.error("No subcommand given")

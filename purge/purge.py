@@ -16,6 +16,8 @@ from utils import utils
 @click.option('--age', '-a', help='Delete all backups older than AGE days. If set keep will be ignored.')
 @click.option('--regex', '-r', help='Regex to match the backup files. Files containing the regex will be deleted. Defaults to "\\.tar\\.gz\\.gpg" which will match all files containing this string not only ones that end with it.')
 def purge(ctx, keep, path, dry_run, age, regex):
+    # TODO: Change to conform with the new config file structure
+    # TODO: push argument parsing to utils
     """
     Delete old backups matching the set pattern in the folder path. By default, the last two backups will be kept. 
     If the --age option is set, all backups older than AGE days will be deleted and the keep option is ignored. 
