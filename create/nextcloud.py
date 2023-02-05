@@ -25,46 +25,45 @@ def nextcloud(ctx, docker, container_name, docker_compose_path, docker_compose_f
 
     Usage: backup_script.py [OPTIONS] nextcloud [OPTIONS]
     """
-    dry_run = dry_run or get_config_value(ctx.obj, 'general', 'dry_run')
+    dry_run = dry_run or get_config_value(ctx, 'general', 'dry_run')
     options = {'docker': docker, 'container_name': container_name, 'docker_compose_path': docker_compose_path, 'docker_compose_file': docker_compose_file, 'differential': differential, 'appdata': appdata}
     options = {k: v for k, v in options.items() if v is not None}
-    write_arguments_to_config(ctx.obj, 'nextcloud', options)
+    write_arguments_to_config(ctx, 'nextcloud', options)
 
     options = {'dry_run': dry_run}
-    write_arguments_to_config(ctx.obj, 'create', options)
-    if not appdata and not get_config_value(ctx.obj, 'nextcloud', 'appdata') and not docker:
+    write_arguments_to_config(ctx, 'create', options)
+  
+    if not appdata and not get_config_value(ctx, 'nextcloud', 'appdata') and not docker:
         logging.error("Appdata directory not set. Use the --appdata option to set the appdata directory or set the appdata directory in the config file.")
         sys.exit(1)
 
     differential_option=""
-    if get_config_value(ctx.obj, 'nextcloud', 'differential'):
+    if get_config_value(ctx, 'nextcloud', 'differential'):
         logging.info("Creating differential backup")
         differential_option = " --differential"
     
     if docker:
         logging.info("Nextcloud is running in docker")
-        if not is_in_config(ctx.obj, 'nextcloud', 'container_name'):
+        if not is_in_config(ctx, 'nextcloud', 'container_name'):
             logging.warning("Container name not set but --docker is set. A container name can be set in the config file or with the --container-name option. Using default container name from the official Nextcloud docker compose: app")
-            container_name = "app"
-        
-        if not is_in_config(ctx.obj, 'docker-compose_path', 'container_name'):
+            write_arguments_to_config(ctx, 'nextcloud', {'container_name': 'app'})
+        if not is_in_config(ctx, 'nextcloud', 'docker_compose_path'):
             logging.warning("Docker compose path not set but --docker is set. A docker compose path can be set in the config file or with the --docker-compose-path option. Using default docker compose path: docker-compose")
-            docker_compose_path = "docker-compose"
-        if not is_in_config(ctx.obj, 'docker-compose_file', 'container_name'):
+            write_arguments_to_config(ctx, 'nextcloud', {'docker_compose_path': 'docker-compose'})
+        if not is_in_config(ctx, 'nextcloud', 'docker_compose_file'):
             logging.warning("Docker compose file not set but --docker is set. A docker compose file can be set in the config file or with the --docker-compose-file option. Using default docker compose file: docker-compose.yml. This assumes the docker compose file is in the current directory.")
-            docker_compose_file = "docker-compose.yml"
-        if not is_in_config(ctx.obj, 'nextcloud', 'appdata'):
+            write_arguments_to_config(ctx, 'nextcloud', {'docker_compose_file': 'docker-compose.yml'})
+        if not is_in_config(ctx, 'nextcloud', 'appdata'):
             logging.info("Appdata directory not set but --docker is set. Trying to find the appdata directory automatically")
-            appdata = _extact_appdata_dir(docker_compose_path, docker_compose_file, container_name)
+            appdata = _extact_appdata_dir(get_config_value(ctx, 'nextcloud', 'docker_compose_file'), get_config_value(ctx, 'nextcloud', 'container_name'))
             if not appdata:
                 logging.error("Could not find the appdata directory automatically. Please set the appdata directory in the config file or with the --appdata option.")
                 sys.exit(1)
             else:
-                logging.info("Found appdata directory: %s" % appdata)
-                write_arguments_to_config(ctx.obj, 'nextcloud', {'appdata': appdata})
-        docker_compose_file = get_config_value(ctx.obj, 'nextcloud', 'docker_compose_file')
-        docker_compose_path = get_config_value(ctx.obj, 'nextcloud', 'docker_compose_path')
-        container_name = get_config_value(ctx.obj, 'nextcloud', 'container_name')
+                write_arguments_to_config(ctx, 'nextcloud', {'appdata': appdata})
+        docker_compose_file = get_config_value(ctx, 'nextcloud', 'docker_compose_file')
+        docker_compose_path = get_config_value(ctx, 'nextcloud', 'docker_compose_path')
+        container_name = get_config_value(ctx, 'nextcloud', 'container_name')
         logging.debug("Docker compose file: %s" % docker_compose_file)
         logging.debug("Docker compose path: %s" % docker_compose_path)
         logging.debug("Container name: %s" % container_name)
@@ -73,17 +72,19 @@ def nextcloud(ctx, docker, container_name, docker_compose_path, docker_compose_f
     else:
         logging.warning("It is recommended to run Nextcloud in docker. If you are not running Nextcloud in docker, make sure to set the correct path to the Nextcloud directory in the config file.")
         logging.warning("This option is not tested. If you encounter any problems, please open an issue on GitHub.")
-        occ_path = get_config_value(ctx.obj, 'nextcloud', 'occ_path')
+        occ_path = get_config_value(ctx, 'nextcloud', 'occ_path')
         logging.debug("Nextcloud occ path: %s" % occ_path)
         if not occ_path:
             logging.error("Nextcloud occ path not set. Please set the occ path in the config file.")
             sys.exit(1)
         cmd = f'{occ_path} occ backup:point:create {differential_option}'
     logging.debug(f"The final command is: {cmd}")
-    if get_config_value(ctx.obj, 'create', 'dry_run'):
+    if get_config_value(ctx, 'create', 'dry_run'):
         logging.info("Dry run. Not executing the command.")
     else:
-        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logging.error("CHANGE BACK LINE 85 nextcloud.py")
+        #result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run('ls', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             logging.error("Error while creating backup point. Make sure the Nextcloud backup app is installed. Please check the error message below and open an issue on GitHub if the problem persists.")
             logging.error(result.stderr.decode("utf-8"))
@@ -91,19 +92,20 @@ def nextcloud(ctx, docker, container_name, docker_compose_path, docker_compose_f
         else:
             logging.info(result.stdout.decode("utf-8"))
 
-    if not get_config_value(ctx.obj, 'nextcloud', 'appdata'):
+    if not get_config_value(ctx, 'nextcloud', 'appdata'):
         logging.error("Appdata directory not set. Please set the appdata directory in the config file. The backup was created but all subsequent tasks can not be executed.")
         sys.exit(1)
     else:
-        logging.debug("Appdata directory: %s" % get_config_value(ctx.obj, 'nextcloud', 'appdata'))
-        rename_backup(ctx.obj, get_config_value(ctx.obj, 'nextcloud', 'appdata'))
-        move_backup(ctx.obj, get_config_value(ctx.obj, 'nextcloud', 'appdata'))
-        if get_config_value(ctx.obj, 'create', 'compress'):
-            compress_backup(ctx.obj, get_config_value(ctx.obj, 'backup', 'backup_dir'))
-        if get_config_value(ctx.obj, 'create', 'encrypt'):
-            encrypt_backup(ctx.obj, get_config_value(ctx.obj, 'backup', 'backup_dir'))
+        logging.debug("Appdata directory: %s" % get_config_value(ctx, 'nextcloud', 'appdata'))
+        rename_backup(ctx, get_config_value(ctx, 'nextcloud', 'appdata')+'/backup')
+        move_backup(ctx, get_config_value(ctx, 'nextcloud', 'appdata')+'/backup')
+        if get_config_value(ctx, 'create', 'compress'):
+            compress_backup(ctx, get_config_value(ctx, 'backup', 'backup_dir'))
+        if get_config_value(ctx, 'create', 'encrypt'):
+            encrypt_backup(ctx, get_config_value(ctx, 'backup', 'backup_dir'))
 
 def _extact_appdata_dir(docker_compose_file, container_name):
+    logging.debug(f"_extact_appdata_dir called with docker_compose_file: {docker_compose_file} and container_name: {container_name}" )
     with open(docker_compose_file, 'r') as f:
         docker_compose = yaml.load(f, Loader=yaml.FullLoader)
     for service in docker_compose['services']:
@@ -113,15 +115,15 @@ def _extact_appdata_dir(docker_compose_file, container_name):
                 if volume.split(':')[1] == '/var/www/html':
                     appdata = volume.split(':')[0]
     if 'volumes' in docker_compose:
-        for volume in docker_compose['volumes']:
-            if volume.split(':')[0] == appdata:
-                appdata =  volume.split(':')[1]
+        appdata = docker_compose['volumes'][appdata]
+
     if not appdata:
         logging.error("Could not find appdata volume. Please open an issue on GitHub.")
         sys.exit(1)
     else:
         logging.debug("Found volume: %s" % appdata)
-        for dir in os.listdir(os.path.join(appdata, 'data')):
+        for dir in os.listdir(os.path.abspath(os.path.join(appdata, 'data'))):
             if dir.split('_')[0] == 'appdata':
-                return os.path.join(appdata, dir)
+                logging.debug("Found appdata directory: %s" % os.path.join(appdata, dir))
+                return os.path.abspath(os.path.join(appdata, 'data', dir))
 

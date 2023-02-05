@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
+
 import click
 import logging
 import sys
 import os
-import configparser
+import json
 import subprocess
 import datetime
 
@@ -11,10 +13,10 @@ import create
 import purge
 
 @click.group(invoke_without_command=True, chain=True)
-@click.option('--config','-c', help='Config file', type=click.File())
+@click.option('--config','-c', help='Config file', type=click.Path())
 @click.option('--log', '-l', default='backup.log', help='Log file', type=click.Path())
 @click.option('--verbose','-v', is_flag=True, help='Print log to console as well')
-@click.option('--task', '-t', help='runs the given file as a task', type=click.File())
+@click.option('--task', '-t', help='runs the given file as a task', type=click.Path())
 @click.option('--debug', '-d', is_flag=True, help='Debug mode')
 @click.option('--version', is_flag=True, help='Show version')
 @click.option('--dry-run', is_flag=True, help='Dry run')
@@ -27,40 +29,42 @@ def cli(ctx, config, log, verbose, task, debug, version, dry_run):
 
     if debug:
         click.echo("Debug mode is on")
-        logging.basicConfig(filename=log, level=logging.DEBUG)
+        logging.basicConfig(filename=log, level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     else:
-        logging.basicConfig(filename=log, level=logging.INFO)
+        logging.basicConfig(filename=log, level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
     if verbose:
         click.echo("Verbose mode is on")
         logging.getLogger().addHandler(logging.StreamHandler())
-
-    if config:
-        click.echo("Config file: %s" % config)
+    
+    if not config:
+        config = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.toml')
+        logging.info(f"Using default config file:{config}")
         if not os.path.exists(config):
-            click.echo("Config file does not exist")
+            logging.warning("Config file does not exist")
+            config = None
+    if config:
+        if not os.path.exists(config):
             logging.error("Config file does not exist")
             sys.exit(1)
-        config = configparser.ConfigParser()
-        config.read(config)
+        with open(config, 'r') as f:
+            parser = json.load(f)
         ctx.ensure_object(dict)
-        for section in config.sections():
-            if section not in ctx.obj:
-                ctx.obj[section] = {}
-            for key, value in config.items(section):
-                logging.debug("Config: %s %s %s" % (section, key, value))
-                ctx.obj[section][key] = value
+        ctx.obj = parser
+        logging.debug(f"Loaded config file: {config}")
+        logging.debug(json.dumps(ctx.obj, indent=4, sort_keys=True))
 
     if task:
         if not os.path.exists(task):
             logging.error("Task file does not exist")
             sys.exit(1)
         else:
-            logging.info("Running task file: %s" % task)
+            logging.info(f"Running task file: {task}")
                 # TODO: Run task file
+            sys.exit(0)
 
     if dry_run:
-        utils.write_arguments_to_config(ctx.obj, 'general', {'dry_run': True})
+        utils.write_arguments_to_config(ctx, 'general', {'dry_run': True})
     
     # if not ctx.invoked_subcommand:
     #     logging.error("No subcommand given")
