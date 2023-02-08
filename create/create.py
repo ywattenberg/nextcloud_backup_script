@@ -4,7 +4,7 @@ import logging
 import subprocess
 import datetime
 import shutil
-
+# TODO: Add support for custom scripts
 from utils.utils import *
 
 def rename_backup(ctx, backup):

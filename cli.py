@@ -11,6 +11,7 @@ import datetime
 from utils import utils
 import create
 import purge
+import transfer
 
 @click.group(invoke_without_command=True, chain=True)
 @click.option('--config','-c', help='Config file', type=click.Path())
@@ -73,6 +74,7 @@ def cli(ctx, config, log, verbose, task, debug, version, dry_run):
 
 cli.add_command(create.nextcloud)
 cli.add_command(purge.purge)
+cli.add_command(transfer.transfer)
 # @main.command()
 # @click.option('--source', default='.', help='Source directory')
 # @click.option('--destination', default='.', help='Destination directory')

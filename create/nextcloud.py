@@ -4,7 +4,6 @@ import sys
 import subprocess
 import yaml
 import os
-import datetime
 
 from utils.utils import *
 from .create import move_backup, encrypt_backup, compress_backup, rename_backup
@@ -82,9 +81,7 @@ def nextcloud(ctx, docker, container_name, docker_compose_path, docker_compose_f
     if get_config_value(ctx, 'create', 'dry_run'):
         logging.info("Dry run. Not executing the command.")
     else:
-        logging.error("CHANGE BACK LINE 85 nextcloud.py")
-        #result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        result = subprocess.run('ls', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             logging.error("Error while creating backup point. Make sure the Nextcloud backup app is installed. Please check the error message below and open an issue on GitHub if the problem persists.")
             logging.error(result.stderr.decode("utf-8"))
