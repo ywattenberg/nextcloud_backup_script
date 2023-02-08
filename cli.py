@@ -75,6 +75,7 @@ def cli(ctx, config, log, verbose, task, debug, version, dry_run):
 cli.add_command(create.nextcloud)
 cli.add_command(purge.purge)
 cli.add_command(transfer.transfer)
+cli.add_command(transfer.upload)
 # @main.command()
 # @click.option('--source', default='.', help='Source directory')
 # @click.option('--destination', default='.', help='Destination directory')
