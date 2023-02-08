@@ -43,7 +43,7 @@ def get_config_value(ctx, section, key):
         return ctx.obj[section][key]
     return None
 
-def get_newest_file(directory, regex=r".*", exclude_regex=None):
+def get_newest_files(directory, regex=r".*", exclude_regex=None):
     """Get newest file in directory.
 
     Args:

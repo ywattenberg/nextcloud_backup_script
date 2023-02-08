@@ -17,7 +17,8 @@
       "port": 22,
       "remote_dir": "/home/USER/backup",
       "uploaded_log": "uploaded.log",
-      "identity_file": ""
+      "identity_file": "",
+      "path": "/home/USER/backup"
     },
     "purge": {
       "keep": 7

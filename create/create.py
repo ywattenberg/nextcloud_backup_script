@@ -12,7 +12,7 @@ def rename_backup(ctx, backup):
     dry_run = get_config_value(ctx, 'create', 'dry_run')
     if os.path.isdir(backup):
         logging.debug("Backup is a directory. Getting newest file.")
-        backup = get_newest_file(backup)
+        backup = get_newest_files(backup)
         if len(backup) == 0:
             logging.error("No backup files found")
             sys.exit(1)
@@ -39,7 +39,7 @@ def move_backup(ctx, backup):
         sys.exit(1)
     if os.path.isdir(backup):
         logging.debug("Backup is a directory. Getting newest file.")
-        files = get_newest_file(backup)
+        files = get_newest_files(backup)
         if len(files) == 0:
             logging.error("No backup files found")
             sys.exit(1)
@@ -56,7 +56,7 @@ def encrypt_backup(ctx, backup):
     if os.path.isdir(backup):
         logging.debug("Backup is a directory. Getting newest file.")
         # Get newest file in directory not ending with .gpg
-        backup = get_newest_file(backup, exclude_regex=r".*\.gpg$")
+        backup = get_newest_files(backup, exclude_regex=r".*\.gpg$")
         if len(backup) == 0:
             logging.error("No backup files found")
             sys.exit(1)
@@ -96,7 +96,7 @@ def compress_backup(ctx, backup):
         logging.debug("Backup is a directory. Getting newest file.")
         # Get newest file that is not a tar.gz or tar file
         logging.debug(f"Searching in {backup} for newest file")
-        backup = get_newest_file(backup, exclude_regex=r".*(\.tar\.gz|\.tar)$")
+        backup = get_newest_files(backup, exclude_regex=r".*(\.tar\.gz|\.tar)$")
         if len(backup) == 0:
             logging.error("No backup files found")
             sys.exit(1)
