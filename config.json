@@ -18,7 +18,8 @@
       "remote_dir": "/home/USER/backup",
       "uploaded_log": "uploaded.log",
       "identity_file": "",
-      "path": "/home/USER/backup"
+      "path": "/home/USER/backup",
+      "bucket": "BUCKET"
     },
     "purge": {
       "keep": 7
