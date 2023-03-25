@@ -172,7 +172,7 @@ def _transfer_file(ctx, file):
         args.extend([f'-e \"{ssh_command}\"'])
     args.extend([file, f'{user}@{host}:{target}'])
 
-    logging.debug("Running rsync command: %s" % args)
+    logging.debug("Running rsync command: %s" % subprocess.list2cmdline(args))
     if not get_config_value(ctx, 'transfer', 'dry_run'):
         result = subprocess.run(args, capture_output=True)
         logging.info(result.stdout.decode('utf-8'))
