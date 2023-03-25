@@ -58,8 +58,8 @@ def transfer(ctx, path, remote_dir, port, user, host, identity, options, script,
         logging.error("No target given, but it is required")
         sys.exit(1)
     if not is_in_config(ctx, 'transfer', 'port'):
-        logging.error("No port given, but it is required")
-        sys.exit(1)
+        logging.warning("No port given, using default: 22")
+        write_arguments_to_config(ctx, 'transfer', {'port': 22})
     if not is_in_config(ctx, 'transfer', 'user'):
         logging.error("No user given, but it is required")
         sys.exit(1)
@@ -76,9 +76,10 @@ def transfer(ctx, path, remote_dir, port, user, host, identity, options, script,
     if os.path.isdir(get_config_value(ctx, 'transfer', 'path')):
         logging.info("Given path is a directory. Transferring all files in directory.")
         if not is_in_config(ctx, 'transfer', 'upload_log'):
-            logging.warning("No upload log file given. Using default: upload.log, in the current directory.")
-            write_arguments_to_config(ctx, 'transfer', {'upload_log': os.path.abspath('upload.log')})
-        regex = r'.*'
+            logging.warning("No upload log file given. Using default: upload.log, in the backup directory.")
+            backup_log = os.path.join(get_config_value(ctx, 'backup', 'backup_dir'), 'upload.log')
+            write_arguments_to_config(ctx, 'transfer', {'upload_log': backup_log})
+        regex = r".+\.tar\.gz(\.gpg|)"
         if not is_in_config(ctx, 'transfer', 'regex'):
             write_arguments_to_config(ctx, 'transfer', {'regex': '.*'})
             if is_in_config(ctx, 'backup', 'regex'):
@@ -88,17 +89,21 @@ def transfer(ctx, path, remote_dir, port, user, host, identity, options, script,
 
                 logging.debug(f"Using default regex: {regex}")
         else:
-            logging.debug(f"Using regex: {ctx.obj['transfer']['regex']}")
-            regex = ctx.obj['transfer']['regex']
+            logging.debug(f"Using regex: {ctx.obj['backup']['regex']}")
+            regex = get_config_value(ctx, 'backup', 'regex') 
 
         uploaded_files = _get_uploaded_files(ctx)
         existing_files = []
         reg = re.compile(regex)
         for file in os.listdir(path):
-            if reg.search(file):
+            logging.debug(f"Checking file: {file}")
+            if reg.search(file) and file is not get_config_value(ctx, 'transfer', 'upload_log'):
+                logging.debug(f"Found file: {file}")
                 existing_files.append(file)
                 if file not in uploaded_files:
                     _transfer_file(ctx, os.path.abspath(os.path.join(path, file)))
+                else:
+                    logging.debug(f"File {file} has already been uploaded. Skipping.")
         with open(ctx.obj['transfer']['upload_log'], 'w') as f:
             for file in existing_files:
                 f.write(file+'\n')
