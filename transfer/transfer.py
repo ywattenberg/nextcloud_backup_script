@@ -77,7 +77,7 @@ def transfer(ctx, path, remote_dir, port, user, host, identity, options, script,
         logging.info("Given path is a directory. Transferring all files in directory.")
         if not is_in_config(ctx, 'transfer', 'upload_log'):
             logging.warning(f"No upload log file given. Using default: upload.log, in {get_config_value(ctx, 'transfer', 'path')}.")
-            backup_log = os.path.join(get_config_value(ctx, 'backup', 'backup_dir'), 'upload.log')
+            backup_log = os.path.join(get_config_value(ctx, 'transfer', 'path'), 'upload.log')
             write_arguments_to_config(ctx, 'transfer', {'upload_log': backup_log})
         regex = r".+\.tar\.gz(\.gpg|)"
         if not is_in_config(ctx, 'transfer', 'regex'):
