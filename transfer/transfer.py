@@ -169,7 +169,7 @@ def _transfer_file(ctx, file):
             ssh_command += f" -p {port}"
         if identity:
             ssh_command += f" -i {identity}"
-        args.extend([f"-e '{ssh_command}'"])
+        args.extend([f'-e \"{ssh_command}\"'])
     args.extend([file, f'{user}@{host}:{target}'])
 
     logging.debug("Running rsync command: %s" % args)
