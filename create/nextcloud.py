@@ -20,6 +20,7 @@ def nextcloud(ctx):
 
     logging.info("Nextcloud backup creation started")
     
+
     if get_config_value(ctx, 'nextcloud', 'docker'):
         logging.info("Docker option set. Checking if docker compose file exists")
         if not is_in_config(ctx, 'nextcloud', 'container_name'):
@@ -57,6 +58,13 @@ def nextcloud(ctx):
             sys.exit(1)
         cmd = f'{occ_path} occ backup:point:create'
     logging.debug(f"The final command is: {cmd}")
+
+    if is_in_config(ctx, "nextcloud", "days_between_full_backup"):
+        days_between_full_backup = get_config_value(ctx, "nextcloud", "days_between_full_backup")
+        
+    if is_in_config(ctx, "nextcloud", "days_between_incremental_backup"):
+        days_between_incremental_backup = get_config_value(ctx, "nextcloud", "days_between_incremental_backup")
+        logging.debug("Days between incremental backup: %s" % days_between_incremental_backup)
     if get_config_value(ctx, 'create', 'dry_run'):
         logging.info("Dry run. Not executing the command.")
     else:

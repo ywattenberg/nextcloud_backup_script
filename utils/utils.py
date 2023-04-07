@@ -2,6 +2,7 @@ import os
 import re
 import logging
 
+
 def is_in_config(ctx, section, key):
     """Check if a key is in the config file.
 
@@ -63,3 +64,17 @@ def get_newest_files(directory, regex=r".*", exclude_regex=None):
     files.sort(key=os.path.getmtime)
     files.reverse()
     return files
+
+def get_newest_file_age(directory, regex=r".*", exclude_regex=None):
+    """Get age of newest file in directory.
+
+    Args:
+        directory (str): Directory to search
+
+    Returns:
+        int: Age of newest file in directory
+    """
+    files = get_newest_files(directory, regex, exclude_regex)
+    if files:
+        return os.path.getmtime(files[0])
+    return -1
