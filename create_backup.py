@@ -101,11 +101,8 @@ def create_db_backup(database_config: dict[str, str], result_file:str, pre_prend
     bck_cmd =[
         "mariadb-dump",
         "--single-transaction",
-        "--default-character-set=utf8mb4"
-        "-u",
-        database_config['username'],
-        "-p",
-        database_config['password'],
+        "--user=" +  database_config['username'],
+        "--password=" + database_config['password'],
         database_config['db_name'],
     ]
 
