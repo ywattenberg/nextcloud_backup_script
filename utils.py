@@ -11,7 +11,7 @@ def get_docker_prepend(docker_config: dict[str, str], user:Optional[str]=None, c
     if not container_name:
         container_name = docker_config['container_name']
     return  [
-        "docker compose",
+        "/usr/bin/docker /usr/bin/compose",
         "-f",
         docker_config['compose_file'],
         "exec",
