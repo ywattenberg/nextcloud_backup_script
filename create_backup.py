@@ -99,7 +99,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
 def create_db_backup(database_config: dict[str, str], result_file:str, pre_prend:List[str] = []) -> bool:
     bck_cmd =[
-        "maria-dump",
+        "mariadb-dump",
         "--single-transaction",
         "--default-character-set=utf8mb4"
         "-u",
