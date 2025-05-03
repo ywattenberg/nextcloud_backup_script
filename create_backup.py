@@ -94,7 +94,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
     compression_cmd : List[str] = ["tar", "--absolute-names", "-I" , f"\'pigz -p {cpu_count}\'",  "-cf", new_backup_loc , tmp_dir]
     logger.debug(f"compressions command {' '.join(compression_cmd)}")
-    suc = run_cmd(compression_cmd, shell=True)
+    suc = run_cmd(compression_cmd)
 
 
 def create_db_backup(database_config: dict[str, str], result_file:str, pre_prend:List[str] = []) -> bool:
