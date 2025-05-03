@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import time
 from os import path as path
 import os
@@ -106,12 +107,17 @@ def create_db_backup(database_config: dict[str, str], result_file:str, pre_prend
         "-p",
         database_config['password'],
         database_config['db_name'],
-        "--result-file",
-        result_file 
     ]
 
     logger.debug(f"creating db backup with cmd: {' '.join(pre_prend + bck_cmd)}")
-    suc = run_cmd(pre_prend + bck_cmd)
+    try:
+        with open(result_file, 'w') as f:
+            res = subprocess.run(pre_prend + bck_cmd, stdout=f, text=True, check=True)
+            suc = True
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error creating DB backup: {e}")
+        logging.error(f"stderr: {res.stderr}")
+        suc = False
     if suc:
         logger.info("DB backup created")
 
