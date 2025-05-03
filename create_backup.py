@@ -17,6 +17,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     it will read the config and determine what if/what kind of backup
     needs to be created and create those backups.
     """
+    # TODO: Remove
     logging.debug(f"Config: {json.dumps(config, indent='  ')}")
     source_dir:str = config['general']['source_dir'] #ignore: typing
     target_dir:str = config['general']['target_dir'] # ignore: typing
@@ -51,7 +52,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
     maintance_cmd : List[str] = config['general']['maintance_cmd'].split(" ") # ignore: typing 
     try:
-        suc = run_cmd(maintance_cmd + ["on"])
+        suc = run_cmd(maintance_cmd + ["--on"])
         if not suc:
             logger.error("Could not enable maintance mode. No backup was created. Please check the command in the config")
             raise Exception("Failed to enter maintance")
@@ -79,7 +80,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         tries = 0
         suc:bool = False
         while tries < 10 and not suc:
-            suc = run_cmd(maintance_cmd + ["off"])
+            suc = run_cmd(maintance_cmd + ["--off"])
             tries += 1
         if not suc:
             logger.fatal("Could not disable maintance mode manual intervention required")
