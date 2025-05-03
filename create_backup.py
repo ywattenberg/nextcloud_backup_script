@@ -92,7 +92,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     new_backup_loc :str = path.join(target_dir, new_backup_name + ".tar.gz")
     cpu_count = str(max(4, multiprocessing.cpu_count() - 5))
 
-    compression_cmd : List[str] = ["tar", "--absolute-names", "-I" , f"\'pigz -p {cpu_count}\'",  "-cf", new_backup_loc , tmp_dir]
+    compression_cmd : List[str] = ["tar", "--absolute-names", "-I" , f"\'/usr/bin/pigz -p {cpu_count}\'",  "-cf", new_backup_loc , tmp_dir]
     logger.debug(f"compressions command {' '.join(compression_cmd)}")
     suc = run_cmd(compression_cmd)
 
