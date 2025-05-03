@@ -12,7 +12,7 @@ def get_docker_prepend(docker_config: dict[str, str], user:Optional[str]=None, c
         container_name = docker_config['container_name']
     return  [
         "/usr/bin/docker",
-        "compose"
+        "compose",
         "-f",
         docker_config['compose_file'],
         "exec",
