@@ -15,7 +15,7 @@ def remote_backup(config: dict[str, dict[str,str]]):
     target_dir = Path(config['general']['target_dir']).absolute()
     rsync_cmd = [
         "rsync",
-        "-av"
+        "-av",
         "--append",
         "--inplace",
         str(target_dir)
