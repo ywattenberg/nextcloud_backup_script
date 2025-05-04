@@ -19,5 +19,6 @@ if __name__ == "__main__":
 
     create_backup(config)
     purge_backups(config)
-    encrypt_backup(config)
+    if config['encryption']['enable']:
+        encrypt_backup(config)
     
