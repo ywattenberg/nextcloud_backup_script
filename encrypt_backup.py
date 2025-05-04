@@ -16,6 +16,10 @@ def encrypt_backup(config: dict[str, dict[str,str]]):
         if not re.search(regex, file.name):
             logger.debug(f"{file} does not match backup format. Skipping...")
         elif not file.name.endswith('.gpg'):
+            # Test if file already encpy
+            if Path(str(file) + ".gpg").exists():
+                logging.info(f"A .gpg file already exists for {file} skipping...")
+                continue
             logger.info(f"encrypting backup {file}")
             encrypted_name = str(file) + ".gpg"
             logger.debug(f"new file name will be {encrypted_name}")

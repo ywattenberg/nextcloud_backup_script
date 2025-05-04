@@ -2,6 +2,7 @@ import tomllib
 from create_backup import create_backup
 from purge_backups import purge_backups
 from encrypt_backup import encrypt_backup
+from remote_backup import remote_backup
 import logging
 import json
 
@@ -21,4 +22,5 @@ if __name__ == "__main__":
     purge_backups(config)
     if config['encryption']['enable']:
         encrypt_backup(config)
+    remote_backup(config)
     

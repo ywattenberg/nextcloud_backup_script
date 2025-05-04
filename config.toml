@@ -26,4 +26,13 @@ compose_file="/home/watten/docker/docker-compose.cloud.yml"
 enable = true
 password = "PASSWORD"
 
+[remote]
 
+[remote.filo]
+enable = true
+address = "192.168.178.101"
+target_dir = "/.../"
+# num_of_backups = 5 # not used yes
+username = "pi"
+# remote_cmd = "" # remote command to run after finish (not impl yet)
+ssh_key = "/home/USER/.ssh/id_ecds"
