@@ -37,7 +37,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         os.mkdir(tmp_dir)
 
     d_bt_backups: int = config['general']['days_between_backups'] # type: ignore 
-    age : float = get_newest_file_age(target_dir)
+    age : float = get_newest_file_age(target_dir, r".*-full.*")
     age_in_days = int((time.time() - age)/(60*60*24))
     logger.debug(f"newest File found in backup folder is {age_in_days} days old")
 

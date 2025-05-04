@@ -1,13 +1,15 @@
 [general]
 # This is the base command to enable/disable mainrance mode on the nextcloud instance
-# it will be appended with either `on` or `off` and called via shutil
+# it will be appended with either `on` or `off` and called via subprocess 
 maintance_cmd = "echo disable"
+log_file = "/home/watten/cloud_backup.log"
 source_dir ="/home/wattenberg/Documents/"
 tmp_dir="/home/wattenberg/tmp_backup"
 target_dir="/home/wattenberg/backup"
 num_differential_backups = 5
 num_full_backups = 1
 days_between_backups = 1 # This is in days
+
 
 [database]
 username="$MYSQL_USER"
