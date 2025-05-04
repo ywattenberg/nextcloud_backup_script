@@ -1,0 +1,38 @@
+[general]
+# This is the base command to enable/disable mainrance mode on the nextcloud instance
+# it will be appended with either `on` or `off` and called via subprocess 
+maintance_cmd = "echo disable"
+log_file = "/home/watten/cloud_backup.log"
+source_dir ="/home/wattenberg/Documents/"
+tmp_dir="/home/wattenberg/tmp_backup"
+target_dir="/home/wattenberg/backup"
+num_differential_backups = 5
+num_full_backups = 1
+days_between_backups = 1 # This is in days
+
+
+[database]
+username="$MYSQL_USER"
+password="$MYSQL_PASSWORD"
+db_name="$MYSQL_DATABASE"
+
+[docker]
+enable = true
+nc_container_name= "app"
+db_container_name= "db"
+compose_file="/home/watten/docker/docker-compose.cloud.yml"
+
+[encryption]
+enable = true
+password = "PASSWORD"
+
+[remote]
+
+[remote.filo]
+enable = true
+address = "192.168.178.101"
+target_dir = "/.../"
+# num_of_backups = 5 # not used yes
+username = "pi"
+# remote_cmd = "" # remote command to run after finish (not impl yet)
+ssh_key = "/home/USER/.ssh/id_ecds"
