@@ -38,7 +38,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
     age : float = get_newest_file_age(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
     full_bak_age =  (time.time() - age )/(60*60*24)  
-    age : float = get_newest_file_age(target_dir, r".*-differential\.tar\.gz(?:\.gpg)?")
+    age : float = get_newest_file_age(target_dir, r".*\.tar\.gz(?:\.gpg)?")
     diff_bak_age = (time.time() - age)/(60*60*24)
     logger.debug(f"newest File found in full backup folder is {full_bak_age} days old, newest differential is {diff_bak_age}")
     full_bak_age -= 0.5 # leave half a day buffer for backup creation
