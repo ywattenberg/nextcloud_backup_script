@@ -22,3 +22,8 @@ nc_container_name= "app"
 db_container_name= "db"
 compose_file="/home/watten/docker/docker-compose.cloud.yml"
 
+[encrpytion]
+enable = true
+password = "PASSWORD"
+
+

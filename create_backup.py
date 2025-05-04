@@ -3,7 +3,6 @@ import subprocess
 import time
 from os import path as path
 import os
-import multiprocessing
 import datetime
 from typing import List, Optional
 
@@ -87,7 +86,6 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     logger.info("Done with Maintance. Compressing backup to final location")
 
     new_backup_loc :str = path.join(target_dir, new_backup_name + ".tar.gz")
-    cpu_count = str(max(4, multiprocessing.cpu_count() - 5))
 
     compression_cmd : List[str] = ["tar", "-C", tmp_dir, "--use-compress-program=\"/usr/bin/pigz\"",  "-cf", new_backup_loc , "."]
     logger.debug(f"compressions command {' '.join(compression_cmd)}")

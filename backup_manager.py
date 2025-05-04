@@ -1,6 +1,7 @@
 import tomllib
 from create_backup import create_backup
 from purge_backups import purge_backups
+from encrypt_backup import encrypt_backup
 import logging
 import json
 
@@ -18,4 +19,5 @@ if __name__ == "__main__":
 
     create_backup(config)
     purge_backups(config)
+    encrypt_backup(config)
     
