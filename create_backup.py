@@ -34,7 +34,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         os.mkdir(tmp_dir)
 
     d_bt_backups: int = config['general']['days_between_backups'] # type: ignore 
-    d_bt_diff_backups:int = config['general']['days_between_backups'] # type: ignore
+    d_bt_diff_backups:int = config['general']['days_between_diff_backups'] # type: ignore
 
     age : float = get_newest_file_age(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
     full_bak_age =  (time.time() - age )/(60*60*24)  
