@@ -26,7 +26,7 @@ def encrypt_backup(config: dict[str, dict[str,str]]):
                 '--cipher-algo',
                 'AES256',
                 '--passphrase',
-                config['encryption']['password'],
+                config['encrpytion']['password'],
                 '-o',
                 encrypted_name,
                 '-c',
