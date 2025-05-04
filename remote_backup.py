@@ -30,7 +30,7 @@ def remote_backup(config: dict[str, dict[str,str]]):
         i = 10 # number of retries
         suc = False
         while i and not suc:
-            suc = run_cmd(rsync_cmd + remote_dest)
+            suc = run_cmd(rsync_cmd + [ remote_dest ])
             if not suc:
                 logging.debug("rsync failed. sleeping and retry")
                 time.sleep((11-i)*10) 
