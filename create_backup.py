@@ -49,10 +49,11 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     # Need to create a new backup at the moment only do full backups...
     # Enable maintance mode then copy all files:
     logger.info("Creating new backup")
-    new_backup_name = datetime.datetime.now().strftime("%Y-%m-%d-%H")
+    new_backup_name = datetime.datetime.now().strftime("%Y-%m-%d-%H") + '-full'
 
     maintance_cmd : List[str] = config['general']['maintance_cmd'].split(" ") # ignore: typing 
     try:
+        # TODO: Change to use docker occ 
         suc = run_cmd(maintance_cmd + ["--on"])
         if not suc:
             logger.error("Could not enable maintance mode. No backup was created. Please check the command in the config")
@@ -92,7 +93,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     new_backup_loc :str = path.join(target_dir, new_backup_name + ".tar.gz")
     cpu_count = str(max(4, multiprocessing.cpu_count() - 5))
 
-    compression_cmd : List[str] = ["tar", "--absolute-names", "--use-compress-program=\"/usr/bin/pigz\"",  "-cf", new_backup_loc , tmp_dir]
+    compression_cmd : List[str] = ["tar", "-C", tmp_dir, "--use-compress-program=\"/usr/bin/pigz\"",  "-cf", new_backup_loc , "."]
     logger.debug(f"compressions command {' '.join(compression_cmd)}")
     suc = run_cmd(compression_cmd)
 
