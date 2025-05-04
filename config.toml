@@ -1,20 +1,20 @@
 [general]
 # This is the base command to enable/disable mainrance mode on the nextcloud instance
-# it will be appended with either `on` or `off` and called via subprocess 
-maintance_cmd = "echo disable"
+# it will be appended with either `on` or `off` and called via shutil
+maintance_cmd = "/usr/bin/docker compose -f /home/watten/docker/docker-compose.cloud.yml exec -ti --user www-data app /var/www/html/occ maintenance:mode"
 log_file = "/home/watten/cloud_backup.log"
-source_dir ="/home/wattenberg/Documents/"
-tmp_dir="/home/wattenberg/tmp_backup"
-target_dir="/home/wattenberg/backup"
+source_dir ="/mnt/cloud/html/data/"
+tmp_dir="/mnt/cloud/backup_tmp"
+target_dir="/mnt/media/cloud_backup"
 num_differential_backups = 5
 num_full_backups = 1
-days_between_backups = 1 # This is in days
+days_between_backups = 7 # This is in days
 
 
 [database]
-username="$MYSQL_USER"
-password="$MYSQL_PASSWORD"
-db_name="$MYSQL_DATABASE"
+username="nextcloud"
+password="QuGQ2oRAe6YLn9zuXuU8"
+db_name="nextcloud"
 
 [docker]
 enable = true
@@ -25,5 +25,4 @@ compose_file="/home/watten/docker/docker-compose.cloud.yml"
 [encrpytion]
 enable = true
 password = "PASSWORD"
-
 
