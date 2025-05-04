@@ -15,11 +15,11 @@ def purge_backups(config: dict[str, dict[str, str]]):
     full_backups = get_newest_files(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
 
     if num_full >= len(full_backups):
-        logging.info(f"only found {len(full_backups)} full backups not removing any")
+        logger.info(f"only found {len(full_backups)} full backups not removing any")
     else:
         bks_to_remove = full_backups[num_full:]
-        logging.debug(f"found the following backups to remove {bks_to_remove}")
-        logging.info(f"found {len(bks_to_remove)} backups to remove")
+        logger.debug(f"found the following backups to remove {bks_to_remove}")
+        logger.info(f"found {len(bks_to_remove)} backups to remove")
         [os.remove(os.path.join(target_dir, bk)) for bk in bks_to_remove]
 
         # Clean up differentials left over
@@ -32,7 +32,7 @@ def purge_backups(config: dict[str, dict[str, str]]):
             time = backup.split(".")[0].replace("-differential","")
             parsed_time = datetime.datetime.strptime(time, "%Y-%m-%d-%H")
             if parsed_time < oldest_date:
-                logging.debug(f"""age of differentia backup {backup} older than oldest kept full backup. deleting...""")
+                logger.debug(f"""age of differentia backup {backup} older than oldest kept full backup. deleting...""")
                 os.remove(os.path.join(target_dir,backup))
 
         # TODO: Add removing of differential backups

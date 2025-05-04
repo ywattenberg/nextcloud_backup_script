@@ -44,11 +44,11 @@ def get_newest_files(directory:str, regex:str=r".*", exclude_regex:Optional[ str
     """
     logger.debug(f"Searching files in dir {directory}")
     files = os.listdir(directory)
-    regex_pattern = re.compile(regex.encode('unicode_escape').decode())
+    regex_pattern = re.compile(regex)
     files = [os.path.join(directory, file) for file in files if regex_pattern.search(file)]
     logger.debug(f"Found the following files {files}")
     if exclude_regex:
-        exclude_regex_pattern = re.compile(exclude_regex.encode('unicode_escape').decode())
+        exclude_regex_pattern = re.compile(exclude_regex)
         files = [os.path.join(directory, file) for file in files if not exclude_regex_pattern.search(file)]
     files.sort(key=os.path.getmtime)
     files.reverse()

@@ -58,13 +58,13 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         prepend: List[str] = []
         if 'docker' in config and config['docker']['enable']:
             prepend = get_docker_prepend(config['docker'], container_name=config['docker']['db_container_name'])
-            logging.debug(f"using docker prepend is: {prepend}")
+            logger.debug(f"using docker prepend is: {prepend}")
         
         suc = create_db_backup(config['database'],path.join(tmp_dir, "database_backup.bak"), pre_prend=prepend)
         if not suc:
-            logging.error("Failed to create backup of the database. Will continue backing up data")
+            logger.error("Failed to create backup of the database. Will continue backing up data")
         else:
-            logging.info(f"Created DB backup at {path.join(tmp_dir, "database_backup.bak")}")
+            logger.info(f"Created DB backup at {path.join(tmp_dir, "database_backup.bak")}")
         # Copy files to tmp dir using rsync
         rsync_cmd = ["rsync", "-av", "--delete", source_dir, tmp_dir] 
         logger.debug(f"Copying source folder: {source_dir} to tmp dir {tmp_dir} using command: {' '.join(rsync_cmd)}")
@@ -109,8 +109,8 @@ def create_db_backup(database_config: dict[str, str], result_file:str, pre_prend
             res = subprocess.run(pre_prend + bck_cmd, stdout=f, text=True, check=True)
             suc = True
     except subprocess.CalledProcessError as e:
-        logging.error(f"Error creating DB backup: {e}")
-        logging.error(f"stderr: {res.stderr}")
+        logger.error(f"Error creating DB backup: {e}")
+        logger.error(f"stderr: {res.stderr}")
         suc = False
     if suc:
         logger.info("DB backup created")

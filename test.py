@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # purge_backups(config)
     
     regex = re.compile(r".*-full\.tar\.gz(?:\.gpg)?")
-    s = ["saodfisoi.tar.gz.gpg", "dfdsfsdfpf.tar.gpp", "oifoij.tar", "d.tar.gz"]
+    s = ["saodfisoi-full.tar.gz.gpg", "dfdsfsdfpf-full.tar.gpp", "oifoij-full.tar", "d-full.tar.gz"]
     for a in s:
-        print(regex.fullmatch(a), a)
+        print(regex.fullmatch(a))
 
