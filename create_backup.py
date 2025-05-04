@@ -20,9 +20,9 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     """
     # TODO: Remove
     logging.debug(f"Config: {json.dumps(config, indent='  ')}")
-    source_dir:str = config['general']['source_dir'] #ignore: typing
-    target_dir:str = config['general']['target_dir'] # ignore: typing
-    tmp_dir:str    = config['general']['tmp_dir'] # ignore: typing
+    source_dir:str = config['general']['source_dir'] 
+    target_dir:str = config['general']['target_dir'] 
+    tmp_dir:str    = config['general']['tmp_dir'] 
     source_dir = path.abspath(source_dir)
     target_dir = path.abspath(target_dir)
     tmp_dir    = path.abspath(tmp_dir)
@@ -36,7 +36,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         logger.warning("tmp dir does not exist it will be created please check the tmp_dir path")
         os.mkdir(tmp_dir)
 
-    d_bt_backups: int = config['general']['days_between_backups'] # ignore:typing
+    d_bt_backups: int = config['general']['days_between_backups'] # type: ignore 
     age : float = get_newest_file_age(target_dir)
     age_in_days = int((time.time() - age)/(60*60*24))
     logger.debug(f"newest File found in backup folder is {age_in_days} days old")
