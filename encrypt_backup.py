@@ -17,7 +17,7 @@ def encrypt_backup(config: dict[str, dict[str,str]]):
             logger.debug(f"{file} does not match backup format. Skipping...")
         elif not file.name.endswith('.gpg'):
             logger.info(f"encrypting backup {file}")
-            encrypted_name = file.name + ".gpg"
+            encrypted_name = str(file) + ".gpg"
             logger.debug(f"new file name will be {encrypted_name}")
             encrypt_cmd: List[str] = [
                 'gpg',
@@ -26,7 +26,7 @@ def encrypt_backup(config: dict[str, dict[str,str]]):
                 '--cipher-algo',
                 'AES256',
                 '--passphrase',
-                config['encrpytion']['password'],
+                config['encryption']['password'],
                 '-o',
                 encrypted_name,
                 '-c',
