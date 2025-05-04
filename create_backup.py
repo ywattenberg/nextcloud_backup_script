@@ -6,7 +6,6 @@ import os
 import multiprocessing
 import datetime
 from typing import List, Optional
-import json
 
 from utils import run_cmd, get_newest_file_age, get_docker_prepend
 
@@ -18,8 +17,6 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     it will read the config and determine what if/what kind of backup
     needs to be created and create those backups.
     """
-    # TODO: Remove
-    logging.debug(f"Config: {json.dumps(config, indent='  ')}")
     source_dir:str = config['general']['source_dir'] 
     target_dir:str = config['general']['target_dir'] 
     tmp_dir:str    = config['general']['tmp_dir'] 
@@ -37,12 +34,11 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         os.mkdir(tmp_dir)
 
     d_bt_backups: int = config['general']['days_between_backups'] # type: ignore 
-    age : float = get_newest_file_age(target_dir, r".*-full.*")
-    age_in_days = int((time.time() - age)/(60*60*24))
+    age : float = get_newest_file_age(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
+    age_in_days =  (time.time() - age )/(60*60*24)  
     logger.debug(f"newest File found in backup folder is {age_in_days} days old")
-
-
-    if age_in_days < d_bt_backups:
+    age_in_days -= 0.5 # leave half a day buffer for backup creation
+    if age_in_days < float(d_bt_backups):
         logger.info(f"Newest File found only {age_in_days} days old. Skipping backup creation...")
         return None
     

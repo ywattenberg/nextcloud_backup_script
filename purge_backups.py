@@ -12,7 +12,7 @@ def purge_backups(config: dict[str, dict[str, str]]):
     # num_diff:int = int( config['general']['num_differential_backups']  )
 
     # Manage full backups:
-    full_backups = get_newest_files(target_dir, r".*-full.*")
+    full_backups = get_newest_files(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
 
     if num_full >= len(full_backups):
         logging.info(f"only found {len(full_backups)} full backups not removing any")
