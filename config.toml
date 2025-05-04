@@ -24,5 +24,5 @@ compose_file="/home/watten/docker/docker-compose.cloud.yml"
 
 [encryption]
 enable = true
-password = "PASSWORD"
+password = "enRwdFR6S0crakhWS3JobFFkNm1OaFlmSUc0YklLRVNYRXlMM2N5UzZyUT0=.aTFBWlBLbEl0bFFzNmFtNg=="
 
