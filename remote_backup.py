@@ -21,7 +21,7 @@ def remote_backup(config: dict[str, dict[str,str]]):
         str(target_dir)
     ] 
     for name, remote in config['remote'].items():
-        if not remote['enable']:
+        if not remote['enable']: # type: ignore
             logging.info(f"skipping {name} (disabled)")
             continue
         logging.info(f"Handeling {name}")
