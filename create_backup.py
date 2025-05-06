@@ -46,7 +46,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
     if full_bak_age < float(d_bt_backups) and diff_bak_age < float(d_bt_diff_backups):
 
-        logger.info(f"Newest File found only {full_bak_age}/{d_bt_diff_backups} days old specified age: {d_bt_backups}/{d_bt_diff_backups}. Skipping backup creation...")
+        logger.info(f"Newest File found only {full_bak_age}/{diff_bak_age} days old specified age: {d_bt_backups}/{d_bt_diff_backups}. Skipping backup creation...")
         return None
     
     # Enable maintance mode then copy all files:
