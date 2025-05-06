@@ -9,6 +9,7 @@ target_dir="/mnt/media/cloud_backup"
 num_differential_backups = 5
 num_full_backups = 1
 days_between_backups = 7 # This is in days
+days_between_diff_backups = 1 # also in days
 
 
 [database]
@@ -28,11 +29,11 @@ password = "enRwdFR6S0crakhWS3JobFFkNm1OaFlmSUc0YklLRVNYRXlMM2N5UzZyUT0=.aTFBWlB
 
 [remote]
 
-[remote.filo]
+[remote.cocytus]
 enable = true
-address = "192.168.178.101"
-target_dir = "/.../"
+address = "cocytus"
+target_dir = "/mnt/cloud_backup/restore_points"
 # num_of_backups = 5 # not used yes
-username = "pi"
+username = "cloud_backup"
 # remote_cmd = "" # remote command to run after finish (not impl yet)
-ssh_key = "/home/USER/.ssh/id_ecds"
+ssh_key = "/home/watten/.ssh/id_ecdsa"
