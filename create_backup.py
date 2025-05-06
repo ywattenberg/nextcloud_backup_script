@@ -38,7 +38,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
     age : float = get_newest_file_age(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
     full_bak_age =  (time.time() - age )/(60*60*24)  
-    age : float = get_newest_file_age(target_dir, r".*-differential\.tar\.gz(?:\.gpg)?")
+    age : float = get_newest_file_age(target_dir, r".*\.tar\.gz(?:\.gpg)?")
     diff_bak_age = (time.time() - age)/(60*60*24)
     logger.debug(f"newest File found in full backup folder is {full_bak_age} days old, newest differential is {diff_bak_age}")
     full_bak_age -= 0.5 # leave half a day buffer for backup creation
@@ -89,7 +89,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
 
     logger.info("Done with Maintance. Compressing backup to final location")
 
-    if full_bak_age < float(d_bt_backups): 
+    if full_bak_age >= float(d_bt_backups): 
         logging.info("creating full backup")
         new_backup_name = datetime.datetime.now().strftime("%Y-%m-%d-%H") + '-full'
         new_backup_loc :str = path.join(target_dir, new_backup_name + ".tar.gz")
@@ -98,7 +98,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         logger.debug(f"compressions command {' '.join(compression_cmd)}")
         suc = run_cmd(compression_cmd)
 
-    elif diff_bak_age < float(d_bt_diff_backups):
+    elif diff_bak_age >= float(d_bt_diff_backups):
         logging.info("creating differential backup")
         newest_incremental: str = get_newest_files(target_dir, r".*snar")[0]
         shutil.copy(newest_incremental, newest_incremental + ".copy")
