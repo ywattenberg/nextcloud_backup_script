@@ -42,7 +42,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     diff_bak_age = (time.time() - age)/(60*60*24)
     logger.debug(f"newest File found in full backup folder is {full_bak_age} days old, newest differential is {diff_bak_age}")
     full_bak_age -= 0.5 # leave half a day buffer for backup creation
-    diff_bak_age -= 0.1 # only tenth a day buffer for differential
+    diff_bak_age -= 0.2 only tenth a day buffer for differential
 
     if full_bak_age < float(d_bt_backups) and diff_bak_age < float(d_bt_diff_backups):
 
