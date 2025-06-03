@@ -36,3 +36,7 @@ target_dir = "/.../"
 username = "pi"
 # remote_cmd = "" # remote command to run after finish (not impl yet)
 ssh_key = "/home/USER/.ssh/id_ecds"
+
+[notifier]
+discord-webhook = ""
+
