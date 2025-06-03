@@ -42,12 +42,12 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
     diff_bak_age = (time.time() - age)/(60*60*24)
     logger.debug(f"newest File found in full backup folder is {full_bak_age} days old, newest differential is {diff_bak_age}")
     full_bak_age -= 0.5 # leave half a day buffer for backup creation
-    diff_bak_age -= 0.2 only tenth a day buffer for differential
+    diff_bak_age -= 0.2 # only tenth a day buffer for differential
 
     if full_bak_age < float(d_bt_backups) and diff_bak_age < float(d_bt_diff_backups):
 
         logger.info(f"Newest File found only {full_bak_age}/{diff_bak_age} days old specified age: {d_bt_backups}/{d_bt_diff_backups}. Skipping backup creation...")
-        return None
+        return "None"
     
     # Enable maintance mode then copy all files:
     logger.info("Creating new backup")
@@ -87,10 +87,12 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         if not suc:
             logger.fatal("Could not disable maintance mode manual intervention required")
             raise Exception("failed to disable maintance mode") 
+        return "Failed"
 
     logger.info("Done with Maintance. Compressing backup to final location")
 
     if full_bak_age >= float(d_bt_backups): 
+        type = "Full"
         logging.info("creating full backup")
         new_backup_name = datetime.datetime.now().strftime("%Y-%m-%d-%H") + '-full'
         new_backup_loc :str = path.join(target_dir, new_backup_name + ".tar.gz")
@@ -100,6 +102,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         suc = run_cmd(compression_cmd)
 
     elif diff_bak_age >= float(d_bt_diff_backups):
+        type = "Diff"
         logging.info("creating differential backup")
         newest_incremental: str = get_newest_files(target_dir, r".*snar")[0]
         shutil.copy(newest_incremental, newest_incremental + ".copy")
@@ -111,6 +114,7 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
         suc = run_cmd(compression_cmd)
 
         os.remove(newest_incremental + ".copy")
+    return type
 
 
 def create_db_backup(database_config: dict[str, str], result_file:str, pre_prend:List[str] = []) -> bool:

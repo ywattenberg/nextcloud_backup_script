@@ -37,3 +37,6 @@ target_dir = "/mnt/cloud_backup/restore_points"
 username = "cloud_backup"
 # remote_cmd = "" # remote command to run after finish (not impl yet)
 ssh_key = "/home/watten/.ssh/id_ecdsa"
+
+[notifier]
+discord-webhook = ""
