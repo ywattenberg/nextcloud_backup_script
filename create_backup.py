@@ -85,9 +85,8 @@ def create_backup(config:dict[str, dict[str, str]]) -> Optional[ str ]:
             suc = run_cmd(maintance_cmd + ["--off"])
             tries += 1
         if not suc:
-            logger.fatal("Could not disable maintance mode manual intervention required")
+            logger.error("Could not disable maintance mode manual intervention required")
             raise Exception("failed to disable maintance mode") 
-        return "Failed"
 
     logger.info("Done with Maintance. Compressing backup to final location")
 
