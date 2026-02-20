@@ -6,16 +6,19 @@ from remote_backup import remote_backup
 import logging
 import json
 import requests
+from datetime import date
+from pathlib import Path
 
 
 def main() -> None:
     with open("./config.toml", "rb") as f:
         config = tomllib.load(f)
 
+    log_file = Path(config['general']['log_dir']) / f"{date.today().strftime('%Y-%m-%d')}_cloud_backup.log"
     logging.basicConfig(
         format="[%(asctime)s][%(levelname)s][%(name)s] - %(message)s",
         level=logging.DEBUG,
-        filename=config['general']['log_file']
+        filename=log_file
     )
     logging.debug(f"Full config: {json.dumps(config, indent='  ')}")
     discord_webhook = config['notifier']['discord-webhook']
