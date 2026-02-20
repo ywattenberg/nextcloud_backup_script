@@ -1,9 +1,10 @@
 import logging
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from utils import run_cmd
+from utils import run_cmd_with_progress
 logger = logging.getLogger(__name__)
 
 def remote_backup(config: dict[str, Any]) -> None:
@@ -19,6 +20,7 @@ def remote_backup(config: dict[str, Any]) -> None:
         "-av",
         "--append",
         "--inplace",
+        "--info=progress2",
         str(target_dir)
     ]
     for name, remote in config['remote'].items():
@@ -33,10 +35,12 @@ def remote_backup(config: dict[str, Any]) -> None:
         i = 10 # number of retries
         suc = False
         while i and not suc:
-            suc = run_cmd(rsync_cmd_remote + [ remote_dest ])
+            suc = run_cmd_with_progress(rsync_cmd_remote + [ remote_dest ])
             if not suc:
-                logging.debug("rsync failed. sleeping and retry")
-                time.sleep((11-i)*10)
+                sleep_secs = (11-i)*10
+                next_try = datetime.now() + timedelta(seconds=sleep_secs)
+                logging.warning(f"rsync failed. Retrying at {next_try.strftime('%H:%M:%S')} (in {sleep_secs}s, attempt {11-i} of 10)")
+                time.sleep(sleep_secs)
                 i -= 1
         if not suc:
             logging.error(f"Copy to remote failed for: {name}")
