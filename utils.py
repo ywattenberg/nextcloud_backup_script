@@ -27,7 +27,7 @@ def run_cmd(cmd:List[str], shell:bool=False) -> bool:
         res.check_returncode()
     except subprocess.CalledProcessError as e:
         logger.error(f"An exception occurred while executing the command: {' '.join(cmd)}")
-        logger.error(f"Stderr: {res.stderr if res else ''}")
+        logger.error(f"Stderr: {res.stderr.decode() if res and res.stderr else ''}")
         logger.error(f"Exception: {e}")
         return False
     return True

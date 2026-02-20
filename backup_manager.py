@@ -8,7 +8,7 @@ import json
 import requests
 
 
-if __name__ == "__main__":
+def main() -> None:
     with open("./config.toml", "rb") as f:
         config = tomllib.load(f)
 
@@ -18,29 +18,29 @@ if __name__ == "__main__":
         filename=config['general']['log_file']
     )
     logging.debug(f"Full config: {json.dumps(config, indent='  ')}")
-    discord_webkhook = config['notifier']['discord-webhook']
+    discord_webhook = config['notifier']['discord-webhook']
 
     try:
-        type = create_backup(config)
-        msg = "" 
-        if type == "None":
+        backup_type = create_backup(config)
+        msg = ""
+        if backup_type == "None":
             msg = "Backup script ran according to config no new backup was created"
-        elif type == "Failed":
+        elif backup_type == "Failed":
             msg = "**Failed**: Backup script ran, but creation failed."
-        elif type == "Full":
+        elif backup_type == "Full":
             msg = "Full backup created"
-        elif type == "Diff":
+        elif backup_type == "Diff":
             msg = "Differential backup created"
     except Exception as e:
-        data = {"content": f"**CRITICAL**: Maintance mode could not be disabled. Error: {e}"}
-        requests.post(discord_webkhook, json=data)
-        raise e
-
+        requests.post(discord_webhook, json={"content": f"**CRITICAL**: Maintance mode could not be disabled. Error: {e}"})
+        raise
 
     purge_backups(config)
     if config['encryption']['enable']:
         encrypt_backup(config)
     remote_backup(config)
-    data = {"content": msg}
-    requests.post(discord_webkhook, json=data)
-    
+    requests.post(discord_webhook, json={"content": msg})
+
+
+if __name__ == "__main__":
+    main()

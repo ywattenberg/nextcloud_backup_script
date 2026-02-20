@@ -1,0 +1,30 @@
+[project]
+name = "nextcloud-backup"
+version = "1.0.0"
+description = "Automated backup solution for self-hosted Nextcloud instances"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.scripts]
+nextcloud-backup = "backup_manager:main"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "requests"
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+]

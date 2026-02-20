@@ -1,12 +1,13 @@
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 from utils import run_cmd
 logger = logging.getLogger(__name__)
 
-def remote_backup(config: dict[str, dict[str,str]]):
-    # TODO: add support for running command after copy 
+def remote_backup(config: dict[str, Any]) -> None:
+    # TODO: add support for running command after copy
 
     # simply rsync the whole backup folder to remote wihtout --delete
     # such that remote machine can manage the backups it self
@@ -19,13 +20,13 @@ def remote_backup(config: dict[str, dict[str,str]]):
         "--append",
         "--inplace",
         str(target_dir)
-    ] 
+    ]
     for name, remote in config['remote'].items():
-        if not remote['enable']: # type: ignore
+        if not remote['enable']:
             logging.info(f"skipping {name} (disabled)")
             continue
         logging.info(f"Handeling {name}")
-        remote_dest = f"{remote['username']}@{remote['address']}:{remote['target_dir']}" # type:ignore
+        remote_dest = f"{remote['username']}@{remote['address']}:{remote['target_dir']}"
         logging.debug(f"Destination for rsync is {remote_dest}")
         ssh_opts = f"ssh -i {remote['ssh_key']}" if remote.get('ssh_key') else "ssh"
         rsync_cmd_remote = rsync_cmd + ["-e", ssh_opts]
@@ -41,4 +42,3 @@ def remote_backup(config: dict[str, dict[str,str]]):
             logging.error(f"Copy to remote failed for: {name}")
         else:
             logging.info(f"Copied backups to {name}")
-
