@@ -5,6 +5,7 @@ from encrypt_backup import encrypt_backup
 from remote_backup import remote_backup
 import logging
 import json
+import requests
 
 
 if __name__ == "__main__":
@@ -17,10 +18,29 @@ if __name__ == "__main__":
         filename=config['general']['log_file']
     )
     logging.debug(f"Full config: {json.dumps(config, indent='  ')}")
+    discord_webkhook = config['notifier']['discord-webhook']
 
-    create_backup(config)
+    try:
+        type = create_backup(config)
+        msg = "" 
+        if type == "None":
+            msg = "Backup script ran according to config no new backup was created"
+        elif type == "Failed":
+            msg = "**Failed**: Backup script ran, but creation failed."
+        elif type == "Full":
+            msg = "Full backup created"
+        elif type == "Diff":
+            msg = "Differential backup created"
+    except Exception as e:
+        data = {"content": f"**CRITICAL**: Maintance mode could not be disabled. Error: {e}"}
+        requests.post(discord_webkhook, json=data)
+        raise e
+
+
     purge_backups(config)
     if config['encryption']['enable']:
         encrypt_backup(config)
     remote_backup(config)
+    data = {"content": msg}
+    requests.post(discord_webkhook, json=data)
     

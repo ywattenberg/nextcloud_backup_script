@@ -21,19 +21,22 @@ def remote_backup(config: dict[str, dict[str,str]]):
         str(target_dir)
     ] 
     for name, remote in config['remote'].items():
-        if not remote['enable']:
+        if not remote['enable']: # type: ignore
             logging.info(f"skipping {name} (disabled)")
             continue
         logging.info(f"Handeling {name}")
         remote_dest = f"{remote['username']}@{remote['address']}:{remote['target_dir']}" # type:ignore
         logging.debug(f"Destination for rsync is {remote_dest}")
+        ssh_opts = f"ssh -i {remote['ssh_key']}" if remote.get('ssh_key') else "ssh"
+        rsync_cmd_remote = rsync_cmd + ["-e", ssh_opts]
         i = 10 # number of retries
         suc = False
         while i and not suc:
-            suc = run_cmd(rsync_cmd + [ remote_dest ])
+            suc = run_cmd(rsync_cmd_remote + [ remote_dest ])
             if not suc:
                 logging.debug("rsync failed. sleeping and retry")
-                time.sleep((11-i)*10) 
+                time.sleep((11-i)*10)
+                i -= 1
         if not suc:
             logging.error(f"Copy to remote failed for: {name}")
         else:
