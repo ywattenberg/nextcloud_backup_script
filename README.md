@@ -16,10 +16,21 @@ Automated backup solution for self-hosted Nextcloud instances running in Docker.
 ## Requirements
 
 - Python 3.11+ (uses `tomllib`)
+- [uv](https://docs.astral.sh/uv/) for dependency management
 - `tar`, `pigz`, `rsync`
 - `gpg` (if encryption is enabled)
 - Docker & Docker Compose (if Nextcloud runs in Docker)
 - `mariadb-dump` (available in the DB container or on the host)
+
+## Setup
+
+```bash
+# Install dependencies
+uv sync
+
+# Type-check (optional)
+uv run mypy .
+```
 
 ## Configuration
 
@@ -78,10 +89,10 @@ discord-webhook = "https://discord.com/api/webhooks/..."
 
 ## Usage
 
-Run the backup manager directly:
+Run the backup manager:
 
 ```bash
-python backup_manager.py
+uv run python backup_manager.py
 ```
 
 The script will:
@@ -106,7 +117,7 @@ To run daily via cron (as root, since Docker and file access may require it):
 sudo crontab -e
 
 # Run backup daily at 3 AM
-0 3 * * * cd /path/to/nextcloud_backup_script && python backup_manager.py
+0 3 * * * cd /path/to/nextcloud_backup_script && uv run python backup_manager.py
 ```
 
 ## How it works
@@ -144,4 +155,6 @@ purge_backups.py      # Retention policy enforcement
 remote_backup.py      # rsync replication to remote hosts
 utils.py              # Shared helpers (command execution, file utilities)
 config.toml           # Configuration file
+pyproject.toml        # Project metadata, dependencies, and mypy config
+uv.lock               # Locked dependency versions
 ```
