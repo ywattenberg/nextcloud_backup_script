@@ -13,7 +13,7 @@ def remote_backup(config: dict[str, Any]) -> None:
     # simply rsync the whole backup folder to remote wihtout --delete
     # such that remote machine can manage the backups it self
     # or we can add options in config
-    logging.debug("Starting copying to rmeote location")
+    logging.debug("Starting copying to remote location")
     target_dir = Path(config['general']['target_dir']).absolute()
     rsync_cmd = [
         "rsync",

@@ -23,6 +23,10 @@ def main() -> None:
     logging.debug(f"Full config: {json.dumps(config, indent='  ')}")
     discord_webhook = config['notifier']['discord-webhook']
 
+    def notify(message: str) -> None:
+        if discord_webhook:
+            requests.post(discord_webhook, json={"content": message})
+
     try:
         backup_type = create_backup(config)
         msg = ""
@@ -35,14 +39,14 @@ def main() -> None:
         elif backup_type == "Diff":
             msg = "Differential backup created"
     except Exception as e:
-        requests.post(discord_webhook, json={"content": f"**CRITICAL**: Maintance mode could not be disabled. Error: {e}"})
+        notify(f"**CRITICAL**: Maintance mode could not be disabled. Error: {e}")
         raise
 
     purge_backups(config)
     if config['encryption']['enable']:
         encrypt_backup(config)
     remote_backup(config)
-    requests.post(discord_webhook, json={"content": msg})
+    notify(msg)
 
 
 if __name__ == "__main__":
