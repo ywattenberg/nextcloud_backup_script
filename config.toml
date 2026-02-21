@@ -2,7 +2,7 @@
 # This is the base command to enable/disable mainrance mode on the nextcloud instance
 # it will be appended with either `on` or `off` and called via shutil
 maintance_cmd = "/usr/bin/docker compose -f /home/watten/docker/docker-compose.cloud.yml exec -ti --user www-data app /var/www/html/occ maintenance:mode"
-log_file = "/home/watten/cloud_backup.log"
+log_dir = "/home/watten/log"
 source_dir ="/mnt/cloud/html/data/"
 tmp_dir="/mnt/cloud/backup_tmp"
 target_dir="/mnt/media/cloud_backup"
@@ -37,6 +37,7 @@ target_dir = "/mnt/cloud_backup/restore_points"
 username = "cloud_backup"
 # remote_cmd = "" # remote command to run after finish (not impl yet)
 ssh_key = "/home/watten/.ssh/id_ecdsa"
+run_as = "watten"
 
 [notifier]
 discord-webhook = ""

@@ -32,6 +32,8 @@ def remote_backup(config: dict[str, Any]) -> None:
         logging.debug(f"Destination for rsync is {remote_dest}")
         ssh_opts = f"ssh -i {remote['ssh_key']}" if remote.get('ssh_key') else "ssh"
         rsync_cmd_remote = rsync_cmd + ["-e", ssh_opts]
+        if remote.get('run_as'):
+            rsync_cmd_remote = ["sudo", "-u", remote['run_as']] + rsync_cmd_remote
         i = 10 # number of retries
         suc = False
         while i and not suc:
