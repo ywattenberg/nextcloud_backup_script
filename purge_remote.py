@@ -50,7 +50,7 @@ def remote_backup_dir(config: dict[str, Any], remote: dict[str, Any]) -> str:
     target_dir, e.g. /mnt/cloud_backup/restore_points/cloud_backup.
     """
     local_name = Path(config['general']['target_dir']).absolute().name
-    return remote['target_dir'].rstrip('/') + '/' + local_name
+    return str(remote['target_dir']).rstrip('/') + '/' + local_name
 
 
 def ssh_cmd(remote: dict[str, Any], remote_command: str) -> List[str]:
