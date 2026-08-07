@@ -5,7 +5,7 @@ from os import path as path
 import os
 import datetime
 import shutil
-from typing import Any
+from typing import Any, List, NamedTuple, Tuple
 
 from utils import (
     ANY_BACKUP_REGEX,
@@ -43,6 +43,82 @@ class BackupCreateError(Exception):
     """Writing the archive failed. Any partial file has been removed."""
 
 
+class BackupResult(NamedTuple):
+    """What create_backup did, and what it could not reach."""
+    backup_type: str
+    missing_extras: List[str]
+
+
+# Subdirectory of tmp_dir the extra paths are staged in, so they end up as
+# ./extra/<name> inside the archive next to ./data and ./database_backup.bak.
+EXTRA_DIR = "extra"
+
+
+def plan_extra_copies(paths: List[str], tmp_dir: str) -> Tuple[List[Tuple[str, str]], List[str]]:
+    """Work out where each configured extra path is copied to.
+
+    Returns (copies, missing) where copies is (source, destination directory)
+    and missing lists the configured paths that are not on disk. Kept separate
+    from the copying itself so the decision can be tested without a filesystem.
+    """
+    extra_root = path.join(tmp_dir, EXTRA_DIR)
+    copies: List[Tuple[str, str]] = []
+    missing: List[str] = []
+    for source in paths:
+        source = path.abspath(source)
+        if path.exists(source):
+            copies.append((source, extra_root))
+        else:
+            missing.append(source)
+    return copies, missing
+
+
+def copy_extra_paths(config: dict[str, Any], tmp_dir: str) -> List[str]:
+    """Stage everything outside source_dir that a restore needs.
+
+    The Nextcloud data directory is not the whole instance: config.php carries
+    instanceid, passwordsalt and secret, and custom_apps carries app code that
+    the database only references. They are copied into tmp_dir so tar picks
+    them up with everything else.
+
+    Returns the configured paths that were missing. A missing path is logged
+    and skipped -- losing a night's backup over a typo would be worse.
+    """
+    paths: List[str] = config['general'].get('extra_paths', [])
+    if not paths:
+        logger.debug("no extra_paths configured")
+        return []
+
+    copies, missing = plan_extra_copies(paths, tmp_dir)
+    for source in missing:
+        logger.error(f"configured extra path {source} does not exist, it is NOT in this backup")
+
+    extra_root = path.join(tmp_dir, EXTRA_DIR)
+    os.makedirs(extra_root, exist_ok=True)
+    for source, destination in copies:
+        logger.info(f"copying {source} into the backup")
+        # No trailing slash on the source: rsync then creates <dest>/<basename>.
+        if not run_cmd(["rsync", "-a", "--delete", source, destination + "/"]):
+            logger.error(f"could not copy {source} into the backup")
+            missing.append(source)
+
+    prune_stale_extras(extra_root, [path.basename(source) for source, _ in copies])
+    return missing
+
+
+def prune_stale_extras(extra_root: str, keep: List[str]) -> None:
+    """Drop anything staged by an earlier run that is no longer configured."""
+    for name in os.listdir(extra_root):
+        if name in keep:
+            continue
+        stale = path.join(extra_root, name)
+        logger.info(f"removing {stale}, it is no longer in extra_paths")
+        if path.isdir(stale):
+            shutil.rmtree(stale, ignore_errors=True)
+        else:
+            discard_partial(stale)
+
+
 def discard_partial(file_path: str) -> None:
     """Remove a half-written file, tolerating it not being there."""
     try:
@@ -54,7 +130,7 @@ def discard_partial(file_path: str) -> None:
         logger.error(f"could not remove {file_path}: {e}. Remove it by hand before the next run")
 
 
-def create_backup(config: dict[str, Any]) -> str:
+def create_backup(config: dict[str, Any]) -> BackupResult:
     """
     This function is the top-level function for creating the backup
     it will read the config and determine what if/what kind of backup
@@ -89,7 +165,7 @@ def create_backup(config: dict[str, Any]) -> str:
 
     if full_bak_age < float(d_bt_backups) and diff_bak_age < float(d_bt_diff_backups):
         logger.info(f"Newest File found only {full_bak_age}/{diff_bak_age} days old specified age: {d_bt_backups}/{d_bt_diff_backups}. Skipping backup creation...")
-        return "None"
+        return BackupResult("None", [])
 
     # Enable maintance mode then copy all files:
     logger.info("Creating new backup")
@@ -139,6 +215,13 @@ def create_backup(config: dict[str, Any]) -> str:
 
     logger.info("Done with Maintance. Compressing backup to final location")
 
+    # Staged after maintenance mode is off on purpose: occ maintenance:mode
+    # rewrites config.php, so a copy taken inside the window would carry
+    # 'maintenance' => true and restore an instance that boots into
+    # maintenance. Nothing here is being changed by the backup, so it does not
+    # need the window either.
+    missing_extras = copy_extra_paths(config, tmp_dir)
+
     backup_type: str
     if full_bak_age >= float(d_bt_backups):
         backup_type = "Full"
@@ -178,7 +261,7 @@ def create_backup(config: dict[str, Any]) -> str:
     else:
         backup_type = "None"
 
-    return backup_type
+    return BackupResult(backup_type, missing_extras)
 
 
 def create_db_backup(database_config: dict[str, str], result_file: str, pre_prend: list[str] | None = None) -> bool:
