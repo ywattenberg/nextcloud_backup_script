@@ -7,9 +7,28 @@ import datetime
 import shutil
 from typing import Any
 
-from utils import run_cmd, get_newest_file_age, get_docker_prepend, get_newest_files
+from utils import run_cmd, get_newest_file_age, get_docker_prepend, get_newest_files, redact
 
 logger = logging.getLogger(__name__)
+
+# Buffers so a cron run that fires slightly early still counts as due.
+# They are added to the measured age, never subtracted from it -- subtracting
+# would stretch every configured interval (a 7 day full became an 8 day one).
+FULL_AGE_BUFFER = 0.5   # half a day for the full backup
+DIFF_AGE_BUFFER = 0.2   # only a tenth of a day for the differential
+
+
+class MaintenanceEnableError(Exception):
+    """Maintenance mode could not be enabled, no backup was attempted."""
+
+
+class BackupCopyError(Exception):
+    """Copying the data failed. Maintenance mode was disabled again."""
+
+
+class MaintenanceDisableError(Exception):
+    """Maintenance mode could not be disabled -- Nextcloud is still offline."""
+
 
 def create_backup(config: dict[str, Any]) -> str:
     """
@@ -41,8 +60,8 @@ def create_backup(config: dict[str, Any]) -> str:
     diff_bak_mtime = get_newest_file_age(target_dir, r".*\.tar\.gz(?:\.gpg)?")
     diff_bak_age = (time.time() - diff_bak_mtime) / (60*60*24)
     logger.debug(f"newest File found in full backup folder is {full_bak_age} days old, newest differential is {diff_bak_age}")
-    full_bak_age -= 0.5 # leave half a day buffer for backup creation
-    diff_bak_age -= 0.2 # only tenth a day buffer for differential
+    full_bak_age += FULL_AGE_BUFFER
+    diff_bak_age += DIFF_AGE_BUFFER
 
     if full_bak_age < float(d_bt_backups) and diff_bak_age < float(d_bt_diff_backups):
         logger.info(f"Newest File found only {full_bak_age}/{diff_bak_age} days old specified age: {d_bt_backups}/{d_bt_diff_backups}. Skipping backup creation...")
@@ -56,7 +75,7 @@ def create_backup(config: dict[str, Any]) -> str:
         suc = run_cmd(maintance_cmd + ["--on"])
         if not suc:
             logger.error("Could not enable maintance mode. No backup was created. Please check the command in the config")
-            raise Exception("Failed to enter maintance")
+            raise MaintenanceEnableError("Failed to enter maintance")
         logger.info("Enabled Maintance Mode")
         prepend: list[str] = []
         if 'docker' in config and config['docker']['enable']:
@@ -75,7 +94,7 @@ def create_backup(config: dict[str, Any]) -> str:
         suc = run_cmd(rsync_cmd)
         if not suc:
             logger.error("rsync command failed.")
-            raise Exception("Failed to copy files")
+            raise BackupCopyError("Failed to copy files")
         logger.debug("Copy done")
     finally:
         # Disable maintance mode
@@ -86,14 +105,14 @@ def create_backup(config: dict[str, Any]) -> str:
             tries += 1
         if not disable_suc:
             logger.error("Could not disable maintance mode manual intervention required")
-            raise Exception("failed to disable maintance mode")
+            raise MaintenanceDisableError("failed to disable maintance mode")
 
     logger.info("Done with Maintance. Compressing backup to final location")
 
     backup_type: str
     if full_bak_age >= float(d_bt_backups):
         backup_type = "Full"
-        logging.info("creating full backup")
+        logger.info("creating full backup")
         new_backup_name = datetime.datetime.now().strftime("%Y-%m-%d-%H") + '-full'
         new_backup_loc = path.join(target_dir, new_backup_name + ".tar.gz")
         incremental_list = path.join(target_dir, new_backup_name + ".snar")
@@ -103,7 +122,7 @@ def create_backup(config: dict[str, Any]) -> str:
 
     elif diff_bak_age >= float(d_bt_diff_backups):
         backup_type = "Diff"
-        logging.info("creating differential backup")
+        logger.info("creating differential backup")
         newest_incremental: str = get_newest_files(target_dir, r".*snar")[0]
         shutil.copy(newest_incremental, newest_incremental + ".copy")
 
@@ -132,7 +151,7 @@ def create_db_backup(database_config: dict[str, str], result_file: str, pre_pren
         database_config['db_name'],
     ]
 
-    logger.debug(f"creating db backup with cmd: {' '.join(pre_prend + bck_cmd)}")
+    logger.debug(f"creating db backup with cmd: {redact(' '.join(pre_prend + bck_cmd))}")
     suc = False
     res = None
     try:

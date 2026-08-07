@@ -9,7 +9,7 @@ Automated backup solution for self-hosted Nextcloud instances running in Docker.
 - **Maintenance mode** handling — automatically enabled before backup and disabled after (with retry logic)
 - **AES-256 encryption** using GPG (optional)
 - **Remote replication** via `rsync` over SSH to one or more remote hosts
-- **Automatic purging** of old full and differential backups based on retention policy
+- **Automatic purging** of old full and differential backups, locally and on the remotes, based on retention policy
 - **Discord notifications** via webhook on backup completion or failure
 - **Configurable scheduling** — control intervals between full and differential backups
 
@@ -39,11 +39,11 @@ All settings are defined in `config.toml`. Copy and edit it to match your setup:
 ```toml
 [general]
 maintance_cmd = "/usr/bin/docker compose -f /path/to/docker-compose.yml exec -ti --user www-data app /var/www/html/occ maintenance:mode"
-log_file = "/var/log/cloud_backup.log"
+log_dir = "/var/log"              # One log file per day is written in here
 source_dir = "/path/to/nextcloud/data/"
 tmp_dir = "/path/to/backup_tmp"
 target_dir = "/path/to/backup_storage"
-num_full_backups = 1              # Number of full backups to retain
+num_full_backups = 10             # Number of full backups to retain
 num_differential_backups = 5      # Number of differential backups to retain
 days_between_backups = 7          # Days between full backups
 days_between_diff_backups = 1     # Days between differential backups
@@ -69,6 +69,9 @@ address = "backup-host"
 target_dir = "/mnt/backup/nextcloud"
 username = "backup_user"
 ssh_key = "/home/user/.ssh/id_ecdsa"
+run_as = "someuser"               # Optional: run the rsync/ssh as this user
+num_full_backups = 10             # Optional: retention on the remote, defaults to [general]
+num_differential_backups = 5
 
 [notifier]
 discord-webhook = "https://discord.com/api/webhooks/..."
@@ -103,10 +106,23 @@ The script will:
 4. Copy data files to the temp directory via `rsync`
 5. Disable maintenance mode
 6. Compress the backup (full or differential) with `tar` + `pigz`
-7. Purge old backups according to retention settings
+7. Purge old local backups according to retention settings
 8. Encrypt the backup with GPG (if enabled)
 9. Replicate to remote hosts via `rsync` (if configured)
-10. Send a Discord notification with the result
+10. Purge old backups on the remote hosts according to retention settings
+11. Send a Discord notification with the result
+
+### Dry run
+
+To see which backups the retention policy would delete, locally and on every remote, without
+creating, encrypting or copying anything:
+
+```bash
+uv run python backup_manager.py --dry-run
+```
+
+Run this after changing any retention setting — the remote purge deletes over SSH, so it is worth
+reading the list once before letting it run for real.
 
 ### Cron setup
 
@@ -137,9 +153,24 @@ Day 3:  Differential backup     → 2025-01-03-03-differential.tar.gz
 Day 8:  New full backup, old one purged based on retention
 ```
 
+### Retention
+
+Each differential is built from a *copy* of the full backup's `.snar`, so it contains everything
+that changed since that full. Any one full plus any one of its differentials is therefore a complete
+restore point, and dropping differentials in the middle breaks no chain.
+
+The purge keeps the newest `num_full_backups` fulls and the newest `num_differential_backups`
+differentials, and additionally drops differentials whose full backup is gone, since those can no
+longer be restored. `.snar` files are kept only for retained full backups — the newest full is always
+retained, so the snapshot needed to build the next differential is never removed.
+
 ### Encryption
 
 When enabled, each `.tar.gz` backup is encrypted with GPG symmetric encryption (AES-256). The unencrypted file is deleted after successful encryption, leaving only `.tar.gz.gpg` files.
+
+The passphrase is passed to `gpg` on stdin rather than as an argument, so it does not appear in the
+process list. Credentials are also filtered out of the log file — but `config.toml` itself holds them
+in plaintext, so keep it `chmod 600`.
 
 ### Remote replication
 
@@ -151,9 +182,10 @@ Backups are synced to remote hosts using `rsync` with `--append --inplace` flags
 backup_manager.py     # Entry point — orchestrates the full backup pipeline
 create_backup.py      # Backup creation (full & differential)
 encrypt_backup.py     # GPG encryption of backup archives
-purge_backups.py      # Retention policy enforcement
+purge_backups.py      # Local retention policy enforcement
 remote_backup.py      # rsync replication to remote hosts
-utils.py              # Shared helpers (command execution, file utilities)
+purge_remote.py       # Retention policy enforcement on the remote hosts
+utils.py              # Shared helpers (command execution, file utilities, log redaction)
 config.toml           # Configuration file
 pyproject.toml        # Project metadata, dependencies, and mypy config
 uv.lock               # Locked dependency versions

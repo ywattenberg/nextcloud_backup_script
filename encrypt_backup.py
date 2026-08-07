@@ -24,20 +24,24 @@ def encrypt_backup(config: dict[str, Any]) -> None:
             logger.info(f"encrypting backup {file}")
             encrypted_name = str(file) + ".gpg"
             logger.debug(f"new file name will be {encrypted_name}")
+            # The passphrase is fed via stdin so it never shows up in the
+            # process list (encryption of a full backup runs for hours).
             encrypt_cmd: list[str] = [
                 'gpg',
                 '--batch',
                 '--yes',
                 '--cipher-algo',
                 'AES256',
-                '--passphrase',
-                config['encryption']['password'],
+                '--pinentry-mode',
+                'loopback',
+                '--passphrase-fd',
+                '0',
                 '-o',
                 encrypted_name,
                 '-c',
                 str(file),
             ]
-            suc = run_cmd(encrypt_cmd)
+            suc = run_cmd(encrypt_cmd, stdin_data=config['encryption']['password'])
             if suc:
                 logger.debug(f"encrpytion done. deleting unencrypted {file}")
                 file.unlink()
