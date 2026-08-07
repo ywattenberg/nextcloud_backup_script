@@ -1,8 +1,9 @@
 import logging
+import os
 import re
 import shlex
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 from utils import (
     DIFF_BACKUP_REGEX,
@@ -17,15 +18,26 @@ from utils import (
 logger = logging.getLogger(__name__)
 
 
-def purge_remote(config: dict[str, Any], dry_run: bool = False) -> None:
+def purge_remote(
+    config: dict[str, Any],
+    sync_results: Optional[dict[str, bool]] = None,
+    dry_run: bool = False,
+) -> None:
     """Apply the retention policy on every enabled remote.
 
     The remotes are written to with rsync but never pruned by it, so without
     this they grow by one full backup per cycle until the disk is full.
+
+    sync_results comes from remote_backup: a remote whose copy failed this run
+    is skipped, because rsync writes with --append --inplace and a failed
+    transfer leaves a truncated file under the final name.
     """
     for name, remote in config['remote'].items():
         if not remote['enable']:
             logger.info(f"skipping purge on {name} (disabled)")
+            continue
+        if sync_results is not None and not sync_results.get(name, False):
+            logger.warning(f"skipping purge on {name}: the copy to it did not succeed this run")
             continue
         purge_one_remote(name, remote, config, dry_run)
 
@@ -53,20 +65,78 @@ def ssh_cmd(remote: dict[str, Any], remote_command: str) -> List[str]:
     return cmd
 
 
+def list_remote_files(remote: dict[str, Any], directory: str) -> Optional[Dict[str, int]]:
+    """Map file name -> size for the remote backup dir, None if it cannot be listed."""
+    listing = run_cmd_output(ssh_cmd(remote, f"find {shlex.quote(directory)} -maxdepth 1 -type f -printf '%s %f\\n'"))
+    if listing is None:
+        return None
+    files: Dict[str, int] = {}
+    for line in listing.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        size, _, name = line.partition(" ")
+        try:
+            files[name] = int(size)
+        except ValueError:
+            logger.warning(f"could not read the size of {name!r} from the remote listing, ignoring it")
+    return files
+
+
+def local_file_sizes(target_dir: str) -> Dict[str, int]:
+    sizes: Dict[str, int] = {}
+    for entry in os.scandir(target_dir):
+        if entry.is_file():
+            sizes[entry.name] = entry.stat().st_size
+    return sizes
+
+
+def retention_limits(remote: dict[str, Any], config: dict[str, Any]) -> tuple[int, int]:
+    """Per-remote retention, never below the local one.
+
+    The rsync has no --delete and the local copies stay, so anything deleted
+    here that still exists locally is simply re-uploaded on the next run and
+    deleted again -- forever, at one full backup per night.
+    """
+    limits = []
+    for key in ('num_full_backups', 'num_differential_backups'):
+        local = int(config['general'][key])
+        value = int(remote.get(key, local))
+        if key == 'num_full_backups' and value < 1:
+            logger.warning(f"num_full_backups is {value}, refusing to keep fewer than one full backup")
+            value = 1
+        if value < local:
+            logger.warning(
+                f"{key} is {value} for this remote but {local} locally. Using {local}: a smaller "
+                f"remote value only makes the next rsync upload the deleted backups again"
+            )
+            value = local
+        limits.append(value)
+    return limits[0], limits[1]
+
+
 def purge_one_remote(name: str, remote: dict[str, Any], config: dict[str, Any], dry_run: bool = False) -> None:
-    num_full = int(remote.get('num_full_backups', config['general']['num_full_backups']))
-    num_diff = int(remote.get('num_differential_backups', config['general']['num_differential_backups']))
+    num_full, num_diff = retention_limits(remote, config)
     directory = remote_backup_dir(config, remote)
     logger.info(f"purging {name}:{directory} down to {num_full} full and {num_diff} differential backups")
 
-    listing = run_cmd_output(ssh_cmd(remote, f"ls -1 -- {shlex.quote(directory)}"))
-    if listing is None:
+    remote_files = list_remote_files(remote, directory)
+    if remote_files is None:
         logger.error(f"could not list the backups on {name}. Skipping the purge for this remote")
         return
 
-    # The file names start with the creation time, so sorting them in reverse
-    # gives newest first without having to stat anything over ssh.
-    names = sorted((line.strip() for line in listing.splitlines() if line.strip()), reverse=True)
+    # A file whose size does not match the local copy was cut short in transit.
+    # It is neither counted towards the retention limit (so it cannot evict a
+    # good backup) nor deleted (so --append can still finish it).
+    local_sizes = local_file_sizes(os.path.abspath(config['general']['target_dir']))
+    incomplete = {n for n, size in remote_files.items() if n in local_sizes and local_sizes[n] != size}
+    if incomplete:
+        logger.warning(
+            f"{len(incomplete)} file(s) on {name} do not match their local size and are being ignored, "
+            f"they were most likely cut short in transit: {sorted(incomplete)}"
+        )
+
+    names = sorted((n for n in remote_files if n not in incomplete), reverse=True)
     fulls = [n for n in names if re.search(FULL_BACKUP_REGEX, n)]
     diffs = [n for n in names if re.search(DIFF_BACKUP_REGEX, n)]
     snars = [n for n in names if re.search(SNAR_REGEX, n)]
@@ -95,7 +165,7 @@ def purge_one_remote(name: str, remote: dict[str, Any], config: dict[str, Any], 
         logger.info(f"nothing to purge on {name}")
         return
     if len(to_delete) >= len(names):
-        logger.error(f"the purge would delete every file in {directory} on {name}. Refusing")
+        logger.error(f"the purge would delete every backup in {directory} on {name}. Refusing")
         return
 
     paths = [f"{directory}/{n}" for n in to_delete]

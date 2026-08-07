@@ -30,6 +30,9 @@ uv sync
 
 # Type-check (optional)
 uv run mypy .
+
+# Run the tests
+uv run pytest
 ```
 
 ## Configuration
@@ -164,13 +167,24 @@ differentials, and additionally drops differentials whose full backup is gone, s
 longer be restored. `.snar` files are kept only for retained full backups — the newest full is always
 retained, so the snapshot needed to build the next differential is never removed.
 
+"Newest" is read from the timestamp in the file name, never from the mtime: the mtime of an
+encrypted backup records when `gpg` finished, which can be hours later and in a different order.
+Files whose name does not fit the scheme are never counted towards a limit and never deleted.
+
+A half-written file must never be mistaken for a restore point, so several checks exist: a failed
+`tar` deletes its partial archive and aborts the run, `gpg` writes to a `.part` and is renamed into
+place only on success, and the remote purge compares each remote file against the size of its local
+counterpart — a mismatch means the transfer was cut short, so the file is ignored rather than counted
+or deleted. A remote whose `rsync` failed this run is not purged at all.
+
 ### Encryption
 
 When enabled, each `.tar.gz` backup is encrypted with GPG symmetric encryption (AES-256). The unencrypted file is deleted after successful encryption, leaving only `.tar.gz.gpg` files.
 
 The passphrase is passed to `gpg` on stdin rather than as an argument, so it does not appear in the
-process list. Credentials are also filtered out of the log file — but `config.toml` itself holds them
-in plaintext, so keep it `chmod 600`.
+process list. Credentials are filtered out of every log record on its way to a handler, which covers
+library logging too — `requests`/`urllib3` write the full request URL at DEBUG, webhook token
+included. `config.toml` itself holds the credentials in plaintext, so keep it `chmod 600`.
 
 ### Remote replication
 
@@ -186,6 +200,7 @@ purge_backups.py      # Local retention policy enforcement
 remote_backup.py      # rsync replication to remote hosts
 purge_remote.py       # Retention policy enforcement on the remote hosts
 utils.py              # Shared helpers (command execution, file utilities, log redaction)
+tests/                # pytest suite for the retention decisions
 config.toml           # Configuration file
 pyproject.toml        # Project metadata, dependencies, and mypy config
 uv.lock               # Locked dependency versions

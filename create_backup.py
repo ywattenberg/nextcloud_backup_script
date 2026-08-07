@@ -7,7 +7,16 @@ import datetime
 import shutil
 from typing import Any
 
-from utils import run_cmd, get_newest_file_age, get_docker_prepend, get_newest_files, redact
+from utils import (
+    ANY_BACKUP_REGEX,
+    FULL_BACKUP_REGEX,
+    SNAR_REGEX,
+    get_backup_files,
+    get_docker_prepend,
+    get_newest_file_age,
+    redact,
+    run_cmd,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +37,21 @@ class BackupCopyError(Exception):
 
 class MaintenanceDisableError(Exception):
     """Maintenance mode could not be disabled -- Nextcloud is still offline."""
+
+
+class BackupCreateError(Exception):
+    """Writing the archive failed. Any partial file has been removed."""
+
+
+def discard_partial(file_path: str) -> None:
+    """Remove a half-written file, tolerating it not being there."""
+    try:
+        os.remove(file_path)
+        logger.info(f"removed the unusable {file_path}")
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        logger.error(f"could not remove {file_path}: {e}. Remove it by hand before the next run")
 
 
 def create_backup(config: dict[str, Any]) -> str:
@@ -55,9 +79,9 @@ def create_backup(config: dict[str, Any]) -> str:
     d_bt_backups: int = config['general']['days_between_backups']
     d_bt_diff_backups: int = config['general']['days_between_diff_backups']
 
-    full_bak_mtime = get_newest_file_age(target_dir, r".*-full\.tar\.gz(?:\.gpg)?")
+    full_bak_mtime = get_newest_file_age(target_dir, FULL_BACKUP_REGEX)
     full_bak_age = (time.time() - full_bak_mtime) / (60*60*24)
-    diff_bak_mtime = get_newest_file_age(target_dir, r".*\.tar\.gz(?:\.gpg)?")
+    diff_bak_mtime = get_newest_file_age(target_dir, ANY_BACKUP_REGEX)
     diff_bak_age = (time.time() - diff_bak_mtime) / (60*60*24)
     logger.debug(f"newest File found in full backup folder is {full_bak_age} days old, newest differential is {diff_bak_age}")
     full_bak_age += FULL_AGE_BUFFER
@@ -70,12 +94,14 @@ def create_backup(config: dict[str, Any]) -> str:
     # Enable maintance mode then copy all files:
     logger.info("Creating new backup")
     maintance_cmd: list[str] = config['general']['maintance_cmd'].split(" ")
+    maintenance_enabled = False
     try:
         # TODO: Change to use docker occ
         suc = run_cmd(maintance_cmd + ["--on"])
         if not suc:
             logger.error("Could not enable maintance mode. No backup was created. Please check the command in the config")
             raise MaintenanceEnableError("Failed to enter maintance")
+        maintenance_enabled = True
         logger.info("Enabled Maintance Mode")
         prepend: list[str] = []
         if 'docker' in config and config['docker']['enable']:
@@ -97,15 +123,19 @@ def create_backup(config: dict[str, Any]) -> str:
             raise BackupCopyError("Failed to copy files")
         logger.debug("Copy done")
     finally:
-        # Disable maintance mode
-        tries = 0
-        disable_suc = False
-        while tries < 10 and not disable_suc:
-            disable_suc = run_cmd(maintance_cmd + ["--off"])
-            tries += 1
-        if not disable_suc:
-            logger.error("Could not disable maintance mode manual intervention required")
-            raise MaintenanceDisableError("failed to disable maintance mode")
+        # Only touch maintenance mode if we actually turned it on. Disabling
+        # unconditionally meant a failure to *enable* was replaced by a
+        # MaintenanceDisableError from here, which reports Nextcloud as offline
+        # when it was never taken offline.
+        if maintenance_enabled:
+            tries = 0
+            disable_suc = False
+            while tries < 10 and not disable_suc:
+                disable_suc = run_cmd(maintance_cmd + ["--off"])
+                tries += 1
+            if not disable_suc:
+                logger.error("Could not disable maintance mode manual intervention required")
+                raise MaintenanceDisableError("failed to disable maintance mode")
 
     logger.info("Done with Maintance. Compressing backup to final location")
 
@@ -118,21 +148,33 @@ def create_backup(config: dict[str, Any]) -> str:
         incremental_list = path.join(target_dir, new_backup_name + ".snar")
         compression_cmd: list[str] = ["tar", "-C", tmp_dir, '--use-compress-program="/usr/bin/pigz"',  "-cf", new_backup_loc, "--listed-incremental", incremental_list, "."]
         logger.debug(f"compressions command {' '.join(compression_cmd)}")
-        run_cmd(compression_cmd)
+        if not run_cmd(compression_cmd):
+            # Both files are unusable now, and leaving them behind is worse than
+            # having no backup: the truncated archive would be counted as a
+            # restore point and evict a good one, and every later differential
+            # would be built on top of this .snar.
+            discard_partial(new_backup_loc)
+            discard_partial(incremental_list)
+            raise BackupCreateError("tar failed to create the full backup")
 
     elif diff_bak_age >= float(d_bt_diff_backups):
         backup_type = "Diff"
         logger.info("creating differential backup")
-        newest_incremental: str = get_newest_files(target_dir, r".*snar")[0]
+        newest_incremental: str = get_backup_files(target_dir, SNAR_REGEX)[0]
         shutil.copy(newest_incremental, newest_incremental + ".copy")
 
         new_backup_name = datetime.datetime.now().strftime("%Y-%m-%d-%H") + '-differential'
         new_backup_loc = path.join(target_dir, new_backup_name + ".tar.gz")
         compression_cmd = ["tar", "-C", tmp_dir, '--use-compress-program="/usr/bin/pigz"',  "-cf", new_backup_loc, "--listed-incremental", newest_incremental + ".copy", "."]
         logger.debug(f"compressions command {' '.join(compression_cmd)}")
-        run_cmd(compression_cmd)
-
-        os.remove(newest_incremental + ".copy")
+        try:
+            if not run_cmd(compression_cmd):
+                discard_partial(new_backup_loc)
+                raise BackupCreateError("tar failed to create the differential backup")
+        finally:
+            # The working copy of the snapshot must go even when tar failed, or
+            # the next run picks it up instead of the real .snar.
+            discard_partial(newest_incremental + ".copy")
     else:
         backup_type = "None"
 
@@ -153,14 +195,19 @@ def create_db_backup(database_config: dict[str, str], result_file: str, pre_pren
 
     logger.debug(f"creating db backup with cmd: {redact(' '.join(pre_prend + bck_cmd))}")
     suc = False
-    res = None
     try:
         with open(result_file, 'w') as f:
-            res = subprocess.run(pre_prend + bck_cmd, stdout=f, text=True, check=True)
+            subprocess.run(pre_prend + bck_cmd, stdout=f, stderr=subprocess.PIPE, text=True, check=True)
             suc = True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error creating DB backup: {e}")
-        logger.error(f"stderr: {res.stderr if res else ''}")
+        # str(e) contains the whole argv, including --password=..., so it has to
+        # be redacted. e.stderr carries the actual mariadb message; the old code
+        # read it off a variable that is never assigned when the call raises.
+        logger.error(f"Error creating DB backup: {redact(str(e))}")
+        logger.error(f"stderr: {redact(e.stderr) if e.stderr else ''}")
+        suc = False
+    except OSError as e:
+        logger.error(f"Could not run mariadb-dump: {redact(str(e))}")
         suc = False
     if suc:
         logger.info("DB backup created")

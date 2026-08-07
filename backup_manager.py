@@ -3,6 +3,7 @@ import copy
 import tomllib
 from create_backup import (
     BackupCopyError,
+    BackupCreateError,
     MaintenanceDisableError,
     MaintenanceEnableError,
     create_backup,
@@ -11,7 +12,7 @@ from purge_backups import purge_backups
 from encrypt_backup import encrypt_backup
 from remote_backup import remote_backup
 from purge_remote import purge_remote
-from utils import REDACTED, register_secrets
+from utils import REDACTED, install_redaction_filter, register_secrets
 import logging
 import json
 import requests
@@ -51,15 +52,18 @@ def main() -> None:
         level=logging.DEBUG,
         filename=log_file
     )
-    # Everything run_cmd logs is filtered through these, so they must be
-    # registered before the first command runs.
+    # Everything that reaches a log handler is filtered through these, so they
+    # must be registered before the first command runs. Read defensively: none
+    # of these keys is required to run a backup, and a KeyError here would abort
+    # before notify() exists to report it.
     register_secrets(
-        config['database']['password'],
-        config['encryption']['password'],
-        config['notifier']['discord-webhook'],
+        config.get('database', {}).get('password'),
+        config.get('encryption', {}).get('password'),
+        config.get('notifier', {}).get('discord-webhook'),
     )
+    install_redaction_filter()
     logging.debug(f"Full config: {json.dumps(redacted_config(config), indent='  ')}")
-    discord_webhook = config['notifier']['discord-webhook']
+    discord_webhook = config.get('notifier', {}).get('discord-webhook')
 
     def notify(message: str) -> None:
         if discord_webhook and message:
@@ -91,15 +95,18 @@ def main() -> None:
     except BackupCopyError as e:
         notify(f"**Failed**: Copying the data failed, no backup was created. Maintance mode was disabled again. Error: {e}")
         raise
+    except BackupCreateError as e:
+        notify(f"**Failed**: Writing the archive failed, the partial file was removed. Error: {e}")
+        raise
     except Exception as e:
         notify(f"**Failed**: Backup run aborted with an unexpected error: {e}")
         raise
 
     purge_backups(config)
-    if config['encryption']['enable']:
+    if config.get('encryption', {}).get('enable'):
         encrypt_backup(config)
-    remote_backup(config)
-    purge_remote(config)
+    sync_results = remote_backup(config)
+    purge_remote(config, sync_results=sync_results)
     notify(msg)
 
 

@@ -15,7 +15,10 @@ REDACTED = "***REDACTED***"
 # 2026-08-06-01-full.tar.gz.gpg / 2026-08-06-01-differential.tar.gz / 2026-08-06-01-full.snar
 FULL_BACKUP_REGEX = r".*-full\.tar\.gz(?:\.gpg)?$"
 DIFF_BACKUP_REGEX = r".*-differential\.tar\.gz(?:\.gpg)?$"
+ANY_BACKUP_REGEX = r".*-(?:full|differential)\.tar\.gz(?:\.gpg)?$"
 SNAR_REGEX = r".*\.snar$"
+# Suffix for files that are still being written. Never matches the patterns above.
+PARTIAL_SUFFIX = ".part"
 
 
 def backup_prefix(name: str) -> str:
@@ -23,13 +26,14 @@ def backup_prefix(name: str) -> str:
     return os.path.basename(name).split('.')[0]
 
 
-def backup_timestamp(name: str) -> Optional[datetime]:
+def backup_timestamp(name: str, warn: bool = True) -> Optional[datetime]:
     """Parse the creation time out of a backup file name, None if it does not fit the scheme."""
     stamp = backup_prefix(name).replace("-full", "").replace("-differential", "")
     try:
         return datetime.strptime(stamp, "%Y-%m-%d-%H")
     except ValueError:
-        logger.warning(f"Could not read a timestamp from {name}. It will be left alone.")
+        if warn:
+            logger.warning(f"Could not read a timestamp from {name}. It will be left alone.")
         return None
 
 
@@ -42,6 +46,34 @@ def register_secrets(*secrets: Optional[str]) -> None:
     for secret in secrets:
         if secret and secret not in _SECRETS:
             _SECRETS.append(secret)
+
+
+class RedactionFilter(logging.Filter):
+    """Run redact() over every record on its way to a handler.
+
+    Calling redact() at the call site only covers our own log lines. Libraries
+    log too: requests/urllib3 write the full request URL at DEBUG, which puts
+    the Discord webhook token in the log file on every run. Filtering at the
+    handler catches those, and anything else added later.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = redact(record.msg)
+        if isinstance(record.args, dict):
+            record.args = {k: redact(v) if isinstance(v, str) else v for k, v in record.args.items()}
+        elif record.args:
+            record.args = tuple(redact(a) if isinstance(a, str) else a for a in record.args)
+        return True
+
+
+def install_redaction_filter() -> None:
+    """Attach the redaction filter to every root handler. Call after basicConfig."""
+    redaction = RedactionFilter()
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(redaction)
+    # Belt and braces: this is the library that leaks the webhook URL today.
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def redact(text: str) -> str:
@@ -164,18 +196,54 @@ def get_newest_files(directory:str, regex:str=r".*", exclude_regex:Optional[ str
     files.reverse()
     return files
 
+def get_backup_files(directory:str, regex:str=r".*") -> List[str]:
+    """Backup artefacts in directory, newest first, ordered by the time in the file name.
+
+    The file name records when the backup was made; the mtime does not. gpg
+    stamps every .gpg with the moment that particular file finished encrypting,
+    in whatever order the directory happened to be walked, so an mtime ordering
+    can put a year-old backup first and make the retention sweep delete the
+    newest one. Files whose name does not fit the scheme are left out entirely:
+    they are never counted towards a retention limit and never deleted.
+    """
+    files = []
+    unparseable = []
+    for path in get_newest_files(directory, regex):
+        if backup_timestamp(path, warn=False) is None:
+            unparseable.append(os.path.basename(path))
+        else:
+            files.append(path)
+    if unparseable:
+        logger.warning(f"Ignoring files with an unreadable timestamp (they are kept): {unparseable}")
+    files.sort(key=lambda path: backup_timestamp(path, warn=False) or datetime.min, reverse=True)
+    return files
+
+
 def get_newest_file_age(directory:str, regex:str=r".*", exclude_regex:Optional[str]=None) -> float:
-    """Get age of newest file in directory.
+    """Get the creation time of the newest backup in directory as an epoch timestamp.
+
+    Read from the file name rather than the mtime for the same reason as
+    get_backup_files: the mtime of an encrypted backup is when gpg finished,
+    which can be hours after the backup itself was taken.
 
     Args:
         directory (str): Directory to search
 
     Returns:
-        float: Age of newest file in directory 
+        float: Epoch timestamp of the newest backup, -1 if there is none
     """
+    backups = get_backup_files(directory, regex)
+    if backups:
+        logger.debug(f"newest backup found in {directory} is {backups[0]}")
+        stamp = backup_timestamp(backups[0])
+        if stamp is not None:
+            return stamp.timestamp()
+
+    # Nothing with a readable name: fall back to the mtime so a directory full
+    # of oddly named files still schedules a backup instead of one every run.
     files = get_newest_files(directory, regex, exclude_regex)
     if files:
-        logger.debug(f"newest file found in {directory} is {files[0]}")
+        logger.debug(f"no readable timestamps, falling back to the mtime of {files[0]}")
         return os.path.getmtime(files[0])
     logger.debug(f"No files in {directory} found returning default value (-1)")
     return -1.0
