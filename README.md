@@ -44,6 +44,10 @@ All settings are defined in `config.toml`. Copy and edit it to match your setup:
 maintance_cmd = "/usr/bin/docker compose -f /path/to/docker-compose.yml exec -ti --user www-data app /var/www/html/occ maintenance:mode"
 log_dir = "/var/log"              # One log file per day is written in here
 source_dir = "/path/to/nextcloud/data/"
+extra_paths = [                   # Optional: anything outside source_dir a restore needs
+    "/path/to/nextcloud/config",
+    "/path/to/nextcloud/custom_apps",
+]
 tmp_dir = "/path/to/backup_tmp"
 target_dir = "/path/to/backup_storage"
 num_full_backups = 10             # Number of full backups to retain
@@ -85,6 +89,7 @@ discord-webhook = "https://discord.com/api/webhooks/..."
 | Section | Option | Description |
 |---------|--------|-------------|
 | `general` | `source_dir` | Nextcloud data directory to back up |
+| `general` | `extra_paths` | Files/directories outside `source_dir` to include, e.g. `config/` and `custom_apps/` |
 | `general` | `target_dir` | Where backups are stored locally |
 | `general` | `tmp_dir` | Temporary directory for staging files before compression |
 | `general` | `days_between_backups` | Minimum days between full backups |
@@ -155,6 +160,33 @@ Day 3:  Differential backup     → 2025-01-03-03-differential.tar.gz
 ...
 Day 8:  New full backup, old one purged based on retention
 ```
+
+### What is in a backup
+
+The archive contains three things:
+
+```
+./data/                   # the Nextcloud data directory (source_dir)
+./database_backup.bak     # mariadb-dump of the Nextcloud database
+./extra/<name>/           # each entry of extra_paths, by basename
+```
+
+`source_dir` alone is not a complete instance. `config/config.php` holds `instanceid`,
+`passwordsalt` and `secret` — Nextcloud uses them to decrypt what it stores encrypted in the
+database (external storage credentials, mail passwords, device tokens), and `instanceid` names the
+`appdata_<instanceid>` directory inside the data dir. `custom_apps/` holds the code of installed
+apps, which the database references but does not contain. Put both in `extra_paths`.
+
+The copy happens after maintenance mode is switched off, because `occ maintenance:mode` rewrites
+`config.php` — a copy taken during the window would record `'maintenance' => true` and restore an
+instance that boots straight into maintenance.
+
+A configured path that does not exist is logged as an error and the backup continues without it; the
+Discord notification says which ones were missing. Check coverage without running a backup with
+`--dry-run`, which lists each path and its size.
+
+**On restore, put `config.php` back before the first start.** A fresh install generates a new
+`instanceid`, and the restored `appdata_<instanceid>` directory will not match it.
 
 ### Retention
 

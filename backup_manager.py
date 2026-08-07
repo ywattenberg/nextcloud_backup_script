@@ -1,5 +1,6 @@
 import argparse
 import copy
+import os
 import tomllib
 from create_backup import (
     BackupCopyError,
@@ -32,6 +33,38 @@ def redacted_config(config: dict[str, Any]) -> dict[str, Any]:
         if safe.get(section, {}).get(key):
             safe[section][key] = REDACTED
     return safe
+
+
+def tree_size(source: str) -> int:
+    """Bytes under source, counting symlinks as links rather than their targets.
+
+    os.walk does not follow symlinked directories and lstat does not follow
+    symlinked files, so this matches what du reports -- and what rsync will
+    actually copy -- instead of double counting link targets.
+    """
+    total = 0
+    for root, _dirs, files in os.walk(source):
+        for name in files:
+            try:
+                total += os.lstat(os.path.join(root, name)).st_size
+            except OSError:
+                pass  # vanished or unreadable, not worth failing a report over
+    return total
+
+
+def report_extra_paths(config: dict[str, Any]) -> None:
+    """Show what extra_paths would contribute, so coverage can be checked without a backup."""
+    paths = config['general'].get('extra_paths', [])
+    if not paths:
+        logger.info("DRY RUN: no extra_paths configured, only the data dir and the database are backed up")
+        return
+    for source in paths:
+        if os.path.isdir(source):
+            logger.info(f"DRY RUN: extra path {source} would be included ({tree_size(source) / 1024 ** 2:.1f} MiB)")
+        elif os.path.isfile(source):
+            logger.info(f"DRY RUN: extra path {source} would be included ({os.path.getsize(source)} bytes)")
+        else:
+            logger.error(f"DRY RUN: extra path {source} is MISSING and would not be backed up")
 
 
 def main() -> None:
@@ -71,21 +104,26 @@ def main() -> None:
 
     if args.dry_run:
         logger.info("DRY RUN: no backup will be created and no file will be deleted")
+        report_extra_paths(config)
         purge_backups(config, dry_run=True)
         purge_remote(config, dry_run=True)
         return
 
     try:
-        backup_type = create_backup(config)
+        result = create_backup(config)
         msg = ""
-        if backup_type == "None":
+        if result.backup_type == "None":
             msg = "Backup script ran according to config no new backup was created"
-        elif backup_type == "Failed":
+        elif result.backup_type == "Failed":
             msg = "**Failed**: Backup script ran, but creation failed."
-        elif backup_type == "Full":
+        elif result.backup_type == "Full":
             msg = "Full backup created"
-        elif backup_type == "Diff":
+        elif result.backup_type == "Diff":
             msg = "Differential backup created"
+        if result.missing_extras:
+            # Degraded coverage has to be visible now, not at restore time.
+            msg += (f"\n**Warning**: {len(result.missing_extras)} configured extra path(s) were not "
+                    f"backed up: {', '.join(result.missing_extras)}")
     except MaintenanceDisableError as e:
         notify(f"**CRITICAL**: Maintance mode could not be disabled, Nextcloud is still offline. Error: {e}")
         raise
